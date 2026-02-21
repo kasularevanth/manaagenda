@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { FormEvent } from "react";
 import { profileService } from "../services/profile.service";
 import type { User } from "../types/api";
+import { formatName } from "../utils/name";
 
 type Props = {
   user: User;
@@ -9,7 +10,7 @@ type Props = {
 };
 
 export const ProfileEditor = ({ user, onUpdated }: Props) => {
-  const [fullName, setFullName] = useState(user.fullName);
+  const [fullName, setFullName] = useState(formatName(user.fullName));
   const [bio, setBio] = useState(user.bio ?? "");
   const [phone, setPhone] = useState(user.phone ?? "");
   const [status, setStatus] = useState("");
@@ -30,7 +31,12 @@ export const ProfileEditor = ({ user, onUpdated }: Props) => {
     <section className="card">
       <h3>Edit Profile</h3>
       <form className="grid-two" onSubmit={onSubmit}>
-        <input value={fullName} onChange={(event) => setFullName(event.target.value)} required />
+        <input
+          value={fullName}
+          onChange={(event) => setFullName(event.target.value)}
+          onBlur={() => setFullName(formatName(fullName))}
+          required
+        />
         <input value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="Phone" />
         <textarea value={bio} onChange={(event) => setBio(event.target.value)} placeholder="Bio" rows={3} />
         <button type="submit">Save Profile</button>

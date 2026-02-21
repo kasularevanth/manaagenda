@@ -35,6 +35,18 @@ export const AuthProvider = ({ children }: Props) => {
     void hydrateSession();
   }, []);
 
+  useEffect(() => {
+    const onUnauthorized = () => {
+      setUser(null);
+      setLoading(false);
+    };
+
+    window.addEventListener("auth:unauthorized", onUnauthorized);
+    return () => {
+      window.removeEventListener("auth:unauthorized", onUnauthorized);
+    };
+  }, []);
+
   const value = useMemo<AuthContextValue>(
     () => ({
       user,

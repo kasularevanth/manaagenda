@@ -1,17 +1,16 @@
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { MessagesPanel } from "../components/MessagesPanel";
-import { ProfileEditor } from "../components/ProfileEditor";
 import { adminService } from "../services/admin.service";
 import { clientService } from "../services/client.service";
 import type { User } from "../types/api";
+import { formatName } from "../utils/name";
 
 type Props = {
   user: User;
-  onUserUpdate: (user: User) => void;
 };
 
-export const ClientPage = ({ user, onUserUpdate }: Props) => {
+export const ClientPage = ({ user }: Props) => {
   const [projects, setProjects] = useState<any[]>([]);
   const [services, setServices] = useState<any[]>([]);
   const [requests, setRequests] = useState<any[]>([]);
@@ -89,13 +88,12 @@ export const ClientPage = ({ user, onUserUpdate }: Props) => {
             <p>{project.description}</p>
             <p>
               Assigned employees:{" "}
-              {(project.assignments ?? []).map((assignment: any) => assignment.employee?.fullName).join(", ") || "None"}
+              {(project.assignments ?? []).map((assignment: any) => formatName(assignment.employee?.fullName)).join(", ") || "None"}
             </p>
           </div>
         ))}
       </section>
       <MessagesPanel currentUserId={user.id} />
-      <ProfileEditor user={user} onUpdated={onUserUpdate} />
     </main>
   );
 };

@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { requireAuth } from "../../middleware/auth";
 import { prisma } from "../../lib/prisma";
+import { toTitleCase } from "../../lib/text";
 
 const router = Router();
 router.use(requireAuth);
@@ -18,7 +19,10 @@ router.patch("/", async (req, res, next) => {
 
     const user = await prisma.user.update({
       where: { id: req.user!.id },
-      data: body,
+      data: {
+        ...body,
+        ...(body.fullName ? { fullName: toTitleCase(body.fullName) } : {}),
+      },
       select: {
         id: true,
         fullName: true,

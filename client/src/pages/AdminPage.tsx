@@ -3,14 +3,13 @@ import type { FormEvent } from "react";
 import { adminService } from "../services/admin.service";
 import type { User } from "../types/api";
 import { MessagesPanel } from "../components/MessagesPanel";
-import { ProfileEditor } from "../components/ProfileEditor";
+import { formatName } from "../utils/name";
 
 type Props = {
   user: User;
-  onUserUpdate: (user: User) => void;
 };
 
-export const AdminPage = ({ user, onUserUpdate }: Props) => {
+export const AdminPage = ({ user }: Props) => {
   const [dashboard, setDashboard] = useState<Record<string, number>>({});
   const [users, setUsers] = useState<any[]>([]);
   const [services, setServices] = useState<any[]>([]);
@@ -118,7 +117,7 @@ export const AdminPage = ({ user, onUserUpdate }: Props) => {
         </form>
         {users.map((entry) => (
           <div key={entry.id} className="list-item">
-            {entry.fullName} ({entry.role}) - {entry.email}
+            {formatName(entry.fullName)} ({entry.role}) - {entry.email}
             {entry.role === "EMPLOYEE" ? (
               <button type="button" onClick={() => void handle(() => adminService.removeEmployee(entry.id))}>
                 Remove Employee
@@ -155,7 +154,7 @@ export const AdminPage = ({ user, onUserUpdate }: Props) => {
         </form>
         {clients.map((entry) => (
           <p key={entry.id} className="list-item">
-            {entry.companyName} | contact: {entry.contactUser?.fullName}
+            {entry.companyName} | contact: {formatName(entry.contactUser?.fullName)}
           </p>
         ))}
       </section>
@@ -276,14 +275,13 @@ export const AdminPage = ({ user, onUserUpdate }: Props) => {
                 className="pill"
                 onClick={() => void handle(() => adminService.unassignEmployee(project.id, assignment.employeeUserId))}
               >
-                Unassign {assignment.employee?.fullName}
+                Unassign {formatName(assignment.employee?.fullName)}
               </button>
             ))}
           </div>
         ))}
       </section>
       <MessagesPanel currentUserId={user.id} />
-      <ProfileEditor user={user} onUpdated={onUserUpdate} />
     </main>
   );
 };

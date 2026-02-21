@@ -3,22 +3,34 @@ import type { FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { registerUser } from "../services/auth.service";
 import { AuthVisual } from "../components/AuthVisual";
+import { useAuth } from "../hooks/useAuth";
 
 export const RegisterPage = () => {
   const navigate = useNavigate();
+  const { signIn } = useAuth();
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState<"ADMIN" | "EMPLOYEE" | "CLIENT">("CLIENT");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [role, setRole] = useState<"" | "ADMIN" | "EMPLOYEE" | "CLIENT">("");
   const [status, setStatus] = useState("");
 
   const onRegister = async (event: FormEvent) => {
     event.preventDefault();
     setStatus("");
+    if (!role) {
+      setStatus("Please select a user type.");
+      return;
+    }
+    if (password !== confirmPassword) {
+      setStatus("Password and confirm password must match.");
+      return;
+    }
     try {
       await registerUser({ fullName, email, password, role });
-      setStatus("Account created successfully. Redirecting to login...");
-      setTimeout(() => navigate("/login"), 1200);
+      await signIn(email, password);
+      setStatus("Account created successfully. Redirecting to portal...");
+      setTimeout(() => navigate("/portal"), 500);
     } catch (error) {
       setStatus((error as Error).message);
     }
@@ -36,7 +48,12 @@ export const RegisterPage = () => {
             <form onSubmit={onRegister} className="auth-form">
               <label className="auth-label">
                 Type of user
-                <select value={role} onChange={(event) => setRole(event.target.value as "ADMIN" | "EMPLOYEE" | "CLIENT")}>
+                <select
+                  value={role}
+                  onChange={(event) => setRole(event.target.value as "" | "ADMIN" | "EMPLOYEE" | "CLIENT")}
+                  required
+                >
+                  <option value="">Select type</option>
                   <option value="ADMIN">Admin</option>
                   <option value="EMPLOYEE">Employee</option>
                   <option value="CLIENT">Client</option>
@@ -44,7 +61,12 @@ export const RegisterPage = () => {
               </label>
               <label className="auth-label">
                 Full Name
-                <input placeholder="Enter your full name" value={fullName} onChange={(event) => setFullName(event.target.value)} />
+                <input
+                  placeholder="Enter your full name"
+                  value={fullName}
+                  onChange={(event) => setFullName(event.target.value)}
+                  required
+                />
               </label>
               <label className="auth-label">
                 Email Address
@@ -53,6 +75,7 @@ export const RegisterPage = () => {
                   placeholder="Enter your email address"
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
+                  required
                 />
               </label>
               <label className="auth-label">
@@ -62,6 +85,17 @@ export const RegisterPage = () => {
                   placeholder="Create your password"
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
+                  required
+                />
+              </label>
+              <label className="auth-label">
+                Confirm Password
+                <input
+                  type="password"
+                  placeholder="Confirm your password"
+                  value={confirmPassword}
+                  onChange={(event) => setConfirmPassword(event.target.value)}
+                  required
                 />
               </label>
               <button type="submit" className="auth-submit-btn">

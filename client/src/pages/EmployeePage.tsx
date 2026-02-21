@@ -1,15 +1,13 @@
 import { useEffect, useState } from "react";
 import { MessagesPanel } from "../components/MessagesPanel";
-import { ProfileEditor } from "../components/ProfileEditor";
 import { employeeService } from "../services/employee.service";
 import type { User } from "../types/api";
 
 type Props = {
   user: User;
-  onUserUpdate: (user: User) => void;
 };
 
-export const EmployeePage = ({ user, onUserUpdate }: Props) => {
+export const EmployeePage = ({ user }: Props) => {
   const [projects, setProjects] = useState<any[]>([]);
   const [status, setStatus] = useState("");
 
@@ -59,7 +57,6 @@ export const EmployeePage = ({ user, onUserUpdate }: Props) => {
         ))}
       </section>
       <MessagesPanel currentUserId={user.id} />
-      <ProfileEditor user={user} onUpdated={onUserUpdate} />
     </main>
   );
 };

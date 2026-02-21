@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { messagesService } from "../services/messages.service";
+import { formatName } from "../utils/name";
 
 type MessageRecord = {
   id: string;
@@ -27,8 +28,8 @@ export const MessagesPanel = ({ currentUserId }: Props) => {
     for (const item of messages) {
       const other =
         item.senderId === currentUserId
-          ? { id: item.receiverId, name: item.receiver?.fullName ?? item.receiverId }
-          : { id: item.senderId, name: item.sender?.fullName ?? item.senderId };
+          ? { id: item.receiverId, name: formatName(item.receiver?.fullName) || item.receiverId }
+          : { id: item.senderId, name: formatName(item.sender?.fullName) || item.senderId };
       map.set(other.id, other.name);
     }
     return Array.from(map.entries());
@@ -96,8 +97,8 @@ export const MessagesPanel = ({ currentUserId }: Props) => {
         <h4>Latest messages</h4>
         {messages.slice(0, 20).map((item) => (
           <div key={item.id} className="list-item">
-            <strong>{item.sender?.fullName ?? item.senderId}</strong> →{" "}
-            <strong>{item.receiver?.fullName ?? item.receiverId}</strong>
+            <strong>{formatName(item.sender?.fullName) || item.senderId}</strong> →{" "}
+            <strong>{formatName(item.receiver?.fullName) || item.receiverId}</strong>
             <p>{item.content}</p>
           </div>
         ))}

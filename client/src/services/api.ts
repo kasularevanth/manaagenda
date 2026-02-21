@@ -33,6 +33,19 @@ export const apiRequest = async <T>(
 
   if (!response.ok) {
     const errorBody = (await response.json().catch(() => ({}))) as { message?: string };
+    const authEndpoints = [
+      "/api/auth/login",
+      "/api/auth/register",
+      "/api/auth/refresh",
+      "/api/auth/logout",
+    ];
+    const isAuthEndpoint = authEndpoints.some((endpoint) => path.startsWith(endpoint));
+
+    if (response.status === 401 && !isAuthEndpoint) {
+      clearAccessToken();
+      window.dispatchEvent(new Event("auth:unauthorized"));
+    }
+
     throw new Error(errorBody.message ?? "Request failed");
   }
 

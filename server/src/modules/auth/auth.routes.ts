@@ -5,6 +5,7 @@ import { prisma } from "../../lib/prisma";
 import { ApiError } from "../../lib/errors";
 import { requireAuth } from "../../middleware/auth";
 import { env } from "../../config/env";
+import { toTitleCase } from "../../lib/text";
 
 const router = Router();
 
@@ -42,7 +43,7 @@ router.post("/register", async (req, res, next) => {
 
     const user = await prisma.user.create({
       data: {
-        fullName: body.fullName,
+        fullName: toTitleCase(body.fullName),
         email: body.email.toLowerCase(),
         passwordHash: await hashPassword(body.password),
         role: body.role,

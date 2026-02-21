@@ -1,4 +1,5 @@
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Link, Navigate, Route, Routes } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useAuth } from "./hooks/useAuth";
 import { AdminPage } from "./pages/AdminPage";
@@ -7,44 +8,101 @@ import { ClientPage } from "./pages/ClientPage";
 import { LandingPage } from "./pages/LandingPage";
 import { LoginPage } from "./pages/LoginPage";
 import { RegisterPage } from "./pages/RegisterPage";
-import dashboardIcon from "./assets/icons/dashboard-square-02.svg";
-import userGroupIcon from "./assets/icons/user-group.svg";
-import buildingIcon from "./assets/icons/building-03.svg";
+import viewProfileIcon from "./assets/icons/view profile.svg";
+import logoutIcon from "./assets/icons/logout.svg";
+import profileAvatarDefault from "./assets/icons/profile-avatar-default.png";
+import { ProfilePage } from "./pages/ProfilePage";
+import { formatName } from "./utils/name";
 import "./App.css";
 
+const Topbar = () => {
+  const { user, signOut } = useAuth();
+  const [open, setOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+
+  if (!user) return null;
+
+  useEffect(() => {
+    const onClickOutside = (event: MouseEvent) => {
+      if (!menuRef.current) return;
+      if (!menuRef.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", onClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", onClickOutside);
+    };
+  }, []);
+
+  return (
+    <nav className="topbar">
+      <div className="topbar-left">
+        <strong>{formatName(user.fullName)}</strong> ({user.role})
+      </div>
+      <div className="topbar-menu" ref={menuRef}>
+        <Link className="topbar-link" to="/portal">
+          Portal
+        </Link>
+        <button
+          className={`avatar-btn ${open ? "active" : ""}`}
+          type="button"
+          onClick={() => setOpen((prev) => !prev)}
+          aria-label="Open profile menu"
+        >
+          <img src={profileAvatarDefault} alt="Profile avatar" className="avatar-image" />
+        </button>
+        {open ? (
+          <div className="profile-dropdown">
+            <div className="profile-dropdown-header">
+              <p className="profile-dropdown-name">{formatName(user.fullName)}</p>
+              <p className="profile-dropdown-email">{user.email}</p>
+            </div>
+            <Link className="profile-dropdown-item" to="/profile" onClick={() => setOpen(false)}>
+              <img src={viewProfileIcon} alt="" />
+              <span>View Profile</span>
+            </Link>
+            <button
+              className="profile-dropdown-item profile-logout-item"
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                void signOut();
+              }}
+            >
+              <img src={logoutIcon} alt="" />
+              <span>Logout</span>
+            </button>
+          </div>
+        ) : null}
+      </div>
+    </nav>
+  );
+};
+
 const PortalPage = () => {
-  const { user, signOut, setUser } = useAuth();
+  const { user } = useAuth();
 
   if (!user) return <Navigate to="/login" replace />;
 
   return (
     <>
-      <nav className="topbar">
-        <div className="topbar-left">
-          <strong>{user.fullName}</strong> ({user.role})
-        </div>
-        <div className="topbar-icons">
-          <span className="icon-chip" title="Dashboard">
-            <img src={dashboardIcon} alt="Dashboard" />
-          </span>
-          {user.role === "ADMIN" || user.role === "EMPLOYEE" ? (
-            <span className="icon-chip" title="Team">
-              <img src={userGroupIcon} alt="Team" />
-            </span>
-          ) : null}
-          {user.role === "CLIENT" ? (
-            <span className="icon-chip" title="Client">
-              <img src={buildingIcon} alt="Client" />
-            </span>
-          ) : null}
-          <button onClick={() => void signOut()} type="button">
-            Logout
-          </button>
-        </div>
-      </nav>
-      {user.role === "ADMIN" ? <AdminPage user={user} onUserUpdate={setUser} /> : null}
-      {user.role === "EMPLOYEE" ? <EmployeePage user={user} onUserUpdate={setUser} /> : null}
-      {user.role === "CLIENT" ? <ClientPage user={user} onUserUpdate={setUser} /> : null}
+      <Topbar />
+      {user.role === "ADMIN" ? <AdminPage user={user} /> : null}
+      {user.role === "EMPLOYEE" ? <EmployeePage user={user} /> : null}
+      {user.role === "CLIENT" ? <ClientPage user={user} /> : null}
+    </>
+  );
+};
+
+const ProfileRoutePage = () => {
+  const { user } = useAuth();
+  if (!user) return <Navigate to="/login" replace />;
+  return (
+    <>
+      <Topbar />
+      <ProfilePage />
     </>
   );
 };
@@ -99,6 +157,14 @@ const App = () => {
         element={
           <ProtectedRoute>
             <PortalPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/profile"
+        element={
+          <ProtectedRoute>
+            <ProfileRoutePage />
           </ProtectedRoute>
         }
       />

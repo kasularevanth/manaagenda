@@ -1,0 +1,209 @@
+---
+Code Organization and Modularity Rules
+---
+
+# Core Principles
+
+- Single Responsibility: Every function, class, and module should have one clear purpose
+- DRY (Don't Repeat Yourself): Extract reusable logic into shared utilities
+- KISS (Keep It Simple): Prefer simple, readable code over clever abstractions
+- YAGNI (You Aren't Gonna Need It): Only implement what is currently required
+
+# Modularity
+
+- Every mini task should be a separate function for better readability and code management
+- Break down complex logic into smaller, focused functions with clear responsibilities
+- Each function should do one thing well (max 20-30 lines preferred)
+- Limit function parameters to 3-4; use objects for more complex inputs
+- Avoid deep nesting (max 3 levels); extract nested logic into helper functions
+
+# Architecture Patterns
+
+- Use classes and services to organize related functionality
+- Group business logic into service classes
+- Separate concerns: controllers, services, repositories, utilities
+- Follow dependency injection patterns where applicable
+- Apply SOLID principles:
+  - **S**ingle Responsibility: One reason to change per class/module
+  - **O**pen/Closed: Open for extension, closed for modification
+  - **L**iskov Substitution: Subtypes must be substitutable for base types
+  - **I**nterface Segregation: Many specific interfaces over one general
+  - **D**ependency Inversion: Depend on abstractions, not concretions
+
+# File Size Management
+
+- If any file exceeds 500 lines, consider splitting it
+- If any file exceeds 1000 lines, it must be divided into multiple files
+- Split large files by:
+  - Functionality (separate services)
+  - Domain concerns (separate modules)
+  - Related features (feature folders)
+- Keep related functionality together but maintain reasonable file sizes
+
+---
+
+# JavaScript / TypeScript
+
+## Project Structure
+
+```
+project/
+├── src/
+│   ├── components/       # Reusable UI components
+│   ├── pages/            # Page-level components (views)
+│   ├── services/         # Business logic and API calls
+│   ├── hooks/            # Custom React/Vue hooks
+│   ├── utils/            # Pure utility functions
+│   ├── types/            # TypeScript type definitions
+│   ├── constants/        # Application constants
+│   ├── config/           # Configuration files
+│   ├── store/            # State management (Redux, Zustand, etc.)
+│   └── lib/              # Third-party library wrappers
+├── public/               # Static assets
+├── tests/                # Test files (or co-located with source)
+├── dist/                 # Build output
+└── package.json
+```
+
+## Naming Conventions
+
+- Files: `kebab-case.ts` or `PascalCase.tsx` for React components
+- Variables/functions: `camelCase`
+- Classes/Components: `PascalCase`
+- Constants: `SCREAMING_SNAKE_CASE`
+- Types/Interfaces: `PascalCase` (prefix with `I` for interfaces is optional)
+- Private methods: prefix with `_` or use `#` for true private
+
+## Best Practices
+
+- Use named exports over default exports for better refactoring
+- Organize imports: external libs → internal modules → relative imports
+- Remove unused imports regularly
+- Prefer `const` over `let`; avoid `var`
+- Use TypeScript strict mode
+- Prefer async/await over raw Promises
+- Use optional chaining (`?.`) and nullish coalescing (`??`)
+- Keep components small (under 200 lines)
+- Colocate tests with source files or use `__tests__` directories
+
+## Module Organization
+
+- One component per file for React/Vue components
+- Group related components in feature folders
+- Use barrel exports (`index.ts`) sparingly; they can cause circular dependencies
+- Separate business logic from UI components
+
+---
+
+# Python
+
+## Project Structure
+
+```
+project/
+├── src/
+│   └── package_name/
+│       ├── __init__.py
+│       ├── core/         # Core business logic
+│       ├── models/       # Data models (SQLAlchemy, Pydantic, etc.)
+│       ├── services/     # Business services
+│       ├── api/          # API routes/endpoints
+│       ├── utils/        # Utility functions
+│       ├── config/       # Configuration
+│       └── exceptions/   # Custom exceptions
+├── tests/
+│   ├── unit/
+│   ├── integration/
+│   └── conftest.py
+├── scripts/              # CLI scripts
+├── docs/                 # Documentation
+├── data/                 # Data files (if needed)
+├── requirements.txt      # or pyproject.toml
+└── README.md
+```
+
+## Naming Conventions
+
+- Files/modules: `snake_case.py`
+- Variables/functions: `snake_case`
+- Classes: `PascalCase`
+- Constants: `SCREAMING_SNAKE_CASE`
+- Private: prefix with `_` (single underscore)
+- Name-mangled: prefix with `__` (double underscore)
+
+## Best Practices
+
+- Follow PEP 8 style guide
+- Use type hints for function signatures
+- Use virtual environments (`venv`, `poetry`, `conda`)
+- Prefer composition over inheritance
+- Use dataclasses or Pydantic for data structures
+- Handle exceptions explicitly; avoid bare `except:`
+- Use context managers (`with`) for resource management
+- Prefer list comprehensions over `map`/`filter` for readability
+- Keep functions under 50 lines; classes under 300 lines
+- Use `pathlib` over `os.path` for file operations
+
+## Module Organization
+
+- Each module should have a clear, single purpose
+- Use `__init__.py` to expose public API
+- Group related functionality in packages
+- Avoid circular imports by restructuring dependencies
+- Use absolute imports over relative imports
+
+---
+
+# Shared Best Practices
+
+## Configuration Management
+
+- Store environment-specific config in `.env` files
+- Never commit secrets to version control
+- Use config validation at startup
+- Centralize configuration in a single module/file
+
+## Error Handling
+
+- Use specific exception types over generic ones
+- Log errors with context (user ID, request ID, etc.)
+- Fail fast: validate inputs early
+- Handle errors at appropriate levels (don't over-catch)
+
+## Testing Organization
+
+- Mirror source structure in test directories
+- Name test files: `test_*.py` (Python) or `*.test.ts` / `*.spec.ts` (JS/TS)
+- Organize tests: unit → integration → e2e
+- Keep test files focused; one test file per source file
+
+## Documentation
+
+- Maintain README.md with setup and usage instructions
+- Document public APIs
+- Use inline comments only for complex/non-obvious logic
+- Keep documentation close to code
+
+---
+
+# References
+
+## JavaScript / TypeScript
+
+- [Airbnb JavaScript Style Guide](https://github.com/airbnb/javascript)
+- [Google TypeScript Style Guide](https://google.github.io/styleguide/tsguide.html)
+- [TypeScript Best Practices](https://github.com/andredesousa/typescript-best-practices)
+- [Clean Code JavaScript](https://github.com/ryanmcdermott/clean-code-javascript)
+
+## Python
+
+- [PEP 8 - Style Guide for Python Code](https://peps.python.org/pep-0008/)
+- [Google Python Style Guide](https://google.github.io/styleguide/pyguide.html)
+- [The Hitchhiker's Guide to Python](https://docs.python-guide.org/writing/structure/)
+- [Real Python - Structuring Your Project](https://realpython.com/python-application-layouts/)
+
+## General
+
+- [Clean Code by Robert C. Martin](https://github.com/jnguyen095/clean-code)
+- [SOLID Principles](https://github.com/heykarimoff/solid.python)
+- [Refactoring Guru - Design Patterns](https://refactoring.guru/design-patterns)

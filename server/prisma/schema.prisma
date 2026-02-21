@@ -1,0 +1,151 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Role {
+  ADMIN
+  EMPLOYEE
+  CLIENT
+}
+
+enum ServiceRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum ProjectStatus {
+  PLANNING
+  IN_PROGRESS
+  ON_HOLD
+  COMPLETED
+}
+
+model User {
+  id                String              @id @default(uuid())
+  fullName          String
+  email             String              @unique
+  passwordHash      String
+  role              Role
+  bio               String?
+  phone             String?
+  isActive          Boolean             @default(true)
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  refreshTokens     RefreshToken[]
+  sentMessages      Message[]           @relation("SenderMessages")
+  receivedMessages  Message[]           @relation("ReceiverMessages")
+  employeeProjects  ProjectAssignment[] @relation("EmployeeAssignments")
+  assignedByProjects ProjectAssignment[] @relation("AssignedByAdmin")
+  approvedRequests  ServiceRequest[]    @relation("ApprovedByAdmin")
+  contactCompanies  ClientCompany[]     @relation("CompanyContact")
+  auditLogs         AuditLog[]
+}
+
+model RefreshToken {
+  id         String   @id @default(uuid())
+  userId     String
+  tokenHash  String
+  expiresAt  DateTime
+  isRevoked  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model ClientCompany {
+  id            String           @id @default(uuid())
+  companyName   String
+  contactUserId String           @unique
+  createdAt     DateTime         @default(now())
+  contactUser   User             @relation("CompanyContact", fields: [contactUserId], references: [id])
+  projects      Project[]
+  requests      ServiceRequest[]
+}
+
+model Service {
+  id          String           @id @default(uuid())
+  name        String           @unique
+  description String
+  isActive    Boolean          @default(true)
+  createdAt   DateTime         @default(now())
+  requests    ServiceRequest[]
+}
+
+model ServiceRequest {
+  id              String               @id @default(uuid())
+  clientCompanyId String
+  serviceId       String
+  notes           String?
+  status          ServiceRequestStatus @default(PENDING)
+  approvedById    String?
+  approvedAt      DateTime?
+  createdAt       DateTime             @default(now())
+  clientCompany   ClientCompany        @relation(fields: [clientCompanyId], references: [id], onDelete: Cascade)
+  service         Service              @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+  approvedBy      User?                @relation("ApprovedByAdmin", fields: [approvedById], references: [id], onDelete: SetNull)
+  project         Project?
+}
+
+model Project {
+  id               String              @id @default(uuid())
+  name             String
+  description      String
+  clientCompanyId  String
+  serviceRequestId String?             @unique
+  status           ProjectStatus       @default(PLANNING)
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  clientCompany    ClientCompany       @relation(fields: [clientCompanyId], references: [id], onDelete: Restrict)
+  serviceRequest   ServiceRequest?     @relation(fields: [serviceRequestId], references: [id], onDelete: SetNull)
+  assignments      ProjectAssignment[]
+  messages         Message[]
+}
+
+model ProjectAssignment {
+  id              String   @id @default(uuid())
+  projectId       String
+  employeeUserId  String
+  assignedById    String
+  assignedAt      DateTime @default(now())
+  project         Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  employee        User     @relation("EmployeeAssignments", fields: [employeeUserId], references: [id], onDelete: Cascade)
+  assignedByAdmin User     @relation("AssignedByAdmin", fields: [assignedById], references: [id], onDelete: Restrict)
+
+  @@unique([projectId, employeeUserId])
+}
+
+model Message {
+  id         String    @id @default(uuid())
+  senderId   String
+  receiverId String
+  projectId  String?
+  content    String
+  createdAt  DateTime  @default(now())
+  readAt     DateTime?
+  sender     User      @relation("SenderMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver   User      @relation("ReceiverMessages", fields: [receiverId], references: [id], onDelete: Cascade)
+  project    Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  actorId   String
+  action    String
+  entity    String
+  entityId  String
+  metadata  Json?
+  createdAt DateTime @default(now())
+  actor     User     @relation(fields: [actorId], references: [id], onDelete: Cascade)
+}

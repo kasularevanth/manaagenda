@@ -86,12 +86,27 @@ const PortalPage = () => {
 
   if (!user) return <Navigate to="/login" replace />;
 
+  if (user.role === "ADMIN") {
+    return <Navigate to="/portal/admin/dashboard" replace />;
+  }
+
   return (
     <>
       <Topbar />
-      {user.role === "ADMIN" ? <AdminPage user={user} /> : null}
       {user.role === "EMPLOYEE" ? <EmployeePage user={user} /> : null}
       {user.role === "CLIENT" ? <ClientPage user={user} /> : null}
+    </>
+  );
+};
+
+const AdminRoutePage = () => {
+  const { user } = useAuth();
+  if (!user) return <Navigate to="/login" replace />;
+  if (user.role !== "ADMIN") return <Navigate to="/portal" replace />;
+  return (
+    <>
+      <Topbar />
+      <AdminPage user={user} />
     </>
   );
 };
@@ -157,6 +172,14 @@ const App = () => {
         element={
           <ProtectedRoute>
             <PortalPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/portal/admin/:section"
+        element={
+          <ProtectedRoute>
+            <AdminRoutePage />
           </ProtectedRoute>
         }
       />

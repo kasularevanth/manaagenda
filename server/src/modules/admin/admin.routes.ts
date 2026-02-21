@@ -12,14 +12,20 @@ router.use(requireAuth, requireRole("ADMIN"));
 
 router.get("/dashboard", async (_req, res, next) => {
   try {
-    const [employees, clients, projects, pendingRequests] = await Promise.all([
-      prisma.user.count({ where: { role: "EMPLOYEE" } }),
-      prisma.clientCompany.count(),
-      prisma.project.count(),
-      prisma.serviceRequest.count({ where: { status: "PENDING" } }),
+    const [employees, clients, approvedRequests, assignedProjects] = await Promise.all([
+      prisma.user.count({ where: { role: "EMPLOYEE", isActive: true } }),
+      prisma.user.count({ where: { role: "CLIENT", isActive: true } }),
+      prisma.serviceRequest.count({ where: { status: "APPROVED" } }),
+      prisma.project.count({ where: { assignments: { some: {} } } }),
     ]);
 
-    return res.json({ employees, clients, projects, pendingRequests });
+    return res.json({
+      employees,
+      clients,
+      totalUsers: employees + clients,
+      approvedRequests,
+      assignedProjects,
+    });
   } catch (error) {
     return next(error);
   }

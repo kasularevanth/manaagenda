@@ -3,6 +3,7 @@
 Role-based software company management portal with three roles: Admin, Employee, and Client.
 
 ## Tech Stack
+
 - Frontend: React + TypeScript + Vite
 - Backend: Node.js + Express + TypeScript
 - Database: Supabase PostgreSQL
@@ -10,6 +11,7 @@ Role-based software company management portal with three roles: Admin, Employee,
 - Auth: Access token in memory + refresh token in HttpOnly cookie
 
 ## Core Features Implemented
+
 - Email/password authentication with role-based access
 - Public registration with role selection (`ADMIN`, `EMPLOYEE`, `CLIENT`)
 - Admin portal:
@@ -35,13 +37,25 @@ Role-based software company management portal with three roles: Admin, Employee,
   - Edit profile
 
 ## Project Structure
+
 - `client/` React app
 - `server/` Express API and Prisma
 
-## Environment Setup
+## Setup Instructions
 
-### Server (`server/.env`)
-Copy from `server/.env.example` and set:
+### 1. Clone and install
+
+```bash
+# Install server dependencies
+cd server && npm install
+
+# Install client dependencies
+cd ../client && npm install
+```
+
+### 2. Environment variables
+
+**Server** (`server/.env`) — copy from `server/.env.example` and set:
 
 ```env
 NODE_ENV=development
@@ -56,31 +70,35 @@ COOKIE_SECURE=false
 COOKIE_DOMAIN=
 ```
 
-CORS allowed origins are configured in `server/src/config/cors.ts`.
+CORS allowed origins are in `server/src/config/cors.ts`.
 
-### Client (`client/.env`)
-Copy from `client/.env.example`:
+**Client** (`client/.env`) — copy from `client/.env.example`:
 
 ```env
 VITE_API_BASE_URL=http://localhost:5000
 ```
 
-## Run Locally
+### 3. Database setup
 
-### Install
-- `cd server && npm install`
-- `cd ../client && npm install`
+- Create a [Supabase](https://supabase.com) project and get your connection strings.
+- Use the **pooler** URL (port **6543**, transaction mode) for `DATABASE_URL`, with `?pgbouncer=true&connection_limit=3` for production.
+- Use the direct connection URL (port 5432) for `DIRECT_URL` (migrations).
+- From the project root:
 
-### Prisma
-- `cd server`
-- `npx prisma generate`
-- `npx prisma migrate dev --name init`
+```bash
+cd server
+npx prisma generate
+npx prisma migrate dev --name init
+```
 
-### Start
+### 4. Run locally
+
 - Backend: `cd server && npm run dev`
 - Frontend: `cd client && npm run dev`
+- App: frontend at `http://localhost:5173`, API at `http://localhost:5000`
 
 ## Deploy
+
 - Frontend: Render
 - Backend: Render
 - Database: Supabase Postgres
@@ -88,6 +106,7 @@ VITE_API_BASE_URL=http://localhost:5000
 Set matching environment variables in Render/Vercel dashboards.
 
 ## API Prefixes
+
 - `/api/auth`
 - `/api/admin`
 - `/api/employee`
@@ -95,16 +114,17 @@ Set matching environment variables in Render/Vercel dashboards.
 - `/api/messages`
 - `/api/profile`
 
-## Test Credentials
+## Test login credentials
 
-| Role    | Email                          | Password   |
-|---------|--------------------------------|------------|
-| Client  | jesse@gmail.com                | Client@123 |
-| Admin   | kasularevanth1@gmail.com       | Revanth@28 |
-| Employee| kasulayeshwanth119@gmail.com   | Kasula@123 |
+Use these to sign in and test each role:
+
+| Role     | Email                        | Password   |
+| -------- | ---------------------------- | ---------- |
+| Admin    | kasularevanth1@gmail.com     | Revanth@28 |
+| Employee | kasulayeshwanth119@gmail.com | Kasula@123 |
+| Client   | jesse@gmail.com              | Client@123 |
 
 ## Further Information
 
 For further information and a more detailed view of the project, please check the Notion page:
 https://www.notion.so/manaagenda-30ee37631f6680628d50c1befbd67c03?source=copy_link
-

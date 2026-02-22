@@ -36,11 +36,13 @@ export const adminService = {
   getProjects: () => apiRequest("/api/admin/projects"),
   createProject: (payload: { name: string; description: string; clientCompanyId: string }) =>
     apiRequest("/api/admin/projects", { method: "POST", body: payload }),
-  updateProject: (id: string, payload: { status?: string; name?: string; description?: string }) =>
+  updateProject: (id: string, payload: { status?: string; name?: string; description?: string; clientCompanyId?: string }) =>
     apiRequest(`/api/admin/projects/${id}`, {
       method: "PATCH",
       body: payload,
     }),
+  deleteProject: (id: string) =>
+    apiRequest(`/api/admin/projects/${id}`, { method: "DELETE" }),
   assignEmployee: (projectId: string, employeeUserId: string) =>
     apiRequest(`/api/admin/projects/${projectId}/assignments`, {
       method: "POST",

@@ -62,6 +62,11 @@ export const AdminPage = ({ user }: Props) => {
   const [newCompany, setNewCompany] = useState({ companyName: "", contactUserId: "" });
   const [newService, setNewService] = useState({ name: "", description: "" });
   const [newProject, setNewProject] = useState({ name: "", description: "", clientCompanyId: "" });
+  const [assignProjectId, setAssignProjectId] = useState("");
+  const [assignEmployeeId, setAssignEmployeeId] = useState("");
+  const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
+  const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
+  const [editProject, setEditProject] = useState({ name: "", description: "", status: "PLANNING", clientCompanyId: "" });
 
   const loadAll = useCallback(async (silent = false) => {
     try {
@@ -719,93 +724,307 @@ export const AdminPage = ({ user }: Props) => {
     </>
   );
 
+  const employees = useMemo(
+    () => users.filter((entry: any) => entry.role === "EMPLOYEE"),
+    [users],
+  );
+
+  const handleAssignEmployee = async () => {
+    if (!assignProjectId || !assignEmployeeId) return;
+    const employee = employees.find((e: any) => e.id === assignEmployeeId);
+    const employeeName = employee ? formatName(employee.fullName) : "employee";
+    setStatus("");
+    try {
+      await adminService.assignEmployee(assignProjectId, assignEmployeeId);
+      await loadAll();
+      setAssignEmployeeId("");
+      showSnackbar(`Successfully assigned to ${employeeName}.`, "success");
+    } catch (error) {
+      setStatus((error as Error).message);
+    }
+  };
+
+  const openEditProject = (project: any) => {
+    setEditingProjectId(project.id);
+    setEditProject({
+      name: project.name,
+      description: project.description,
+      status: project.status ?? "PLANNING",
+      clientCompanyId: project.clientCompanyId ?? "",
+    });
+  };
+
+  const saveEditProject = async () => {
+    if (!editingProjectId) return;
+    setStatus("");
+    try {
+      await adminService.updateProject(editingProjectId, {
+        name: editProject.name,
+        description: editProject.description,
+        status: editProject.status,
+        clientCompanyId: editProject.clientCompanyId || undefined,
+      });
+      await loadAll();
+      setEditingProjectId(null);
+      setSelectedProjectIds((prev) => prev.filter((id) => id !== editingProjectId));
+      showSnackbar("Project updated. Changes reflected everywhere.", "success");
+    } catch (error) {
+      setStatus((error as Error).message);
+    }
+  };
+
+  const deleteSelectedProjects = async () => {
+    if (selectedProjectIds.length === 0) return;
+    const count = selectedProjectIds.length;
+    setStatus("");
+    try {
+      for (const id of selectedProjectIds) {
+        await adminService.deleteProject(id);
+      }
+      await loadAll();
+      setSelectedProjectIds([]);
+      setEditingProjectId(null);
+      showSnackbar(count === 1 ? "Project deleted." : `${count} projects deleted.`, "success");
+    } catch (error) {
+      setStatus((error as Error).message);
+    }
+  };
+
   const renderProjects = () => (
-    <section className="card">
-      <h3>Projects</h3>
-      <form
-        className="grid-two"
-        onSubmit={(event) => {
-          event.preventDefault();
-          void handle(async () => {
-            await adminService.createProject(newProject);
-            setNewProject({ name: "", description: "", clientCompanyId: "" });
-          });
-        }}
-      >
-        <input
-          placeholder="Project name"
-          value={newProject.name}
-          onChange={(event) => setNewProject({ ...newProject, name: event.target.value })}
-          required
-        />
-        <input
-          placeholder="Description"
-          value={newProject.description}
-          onChange={(event) => setNewProject({ ...newProject, description: event.target.value })}
-          required
-        />
-        <select
-          value={newProject.clientCompanyId}
-          onChange={(event) => setNewProject({ ...newProject, clientCompanyId: event.target.value })}
-          required
+    <>
+      <section className="card">
+        <h3>Create project</h3>
+        <form
+          className="grid-two"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void handle(async () => {
+              await adminService.createProject(newProject);
+              setNewProject({ name: "", description: "", clientCompanyId: "" });
+            });
+          }}
         >
-          <option value="">Select client company</option>
-          {companies.map((company) => (
-            <option key={company.id} value={company.id}>
-              {company.companyName}
-            </option>
-          ))}
-        </select>
-        <button type="submit">Create Project</button>
-      </form>
-      {projects.map((project) => (
-        <div key={project.id} className="list-item">
-          <p>
-            <strong>{project.name}</strong> ({project.status}) - {project.clientCompany?.companyName}
-          </p>
-          <div className="grid-two">
-            <select
-              defaultValue={project.status}
-              onChange={(event) => void handle(() => adminService.updateProject(project.id, { status: event.target.value }))}
-            >
-              <option value="PLANNING">Planning</option>
-              <option value="IN_PROGRESS">In Progress</option>
-              <option value="ON_HOLD">On Hold</option>
-              <option value="COMPLETED">Completed</option>
-            </select>
-            <select
-              defaultValue=""
-              onChange={(event) => {
-                if (!event.target.value) return;
-                void handle(async () => {
-                  await adminService.assignEmployee(project.id, event.target.value);
-                  event.target.value = "";
-                });
-              }}
-            >
-              <option value="">Assign employee</option>
-              {users
-                .filter((entry) => entry.role === "EMPLOYEE")
-                .map((employee) => (
-                  <option key={employee.id} value={employee.id}>
-                    {formatName(employee.fullName)} ({employee.email})
+          <input
+            placeholder="Project name"
+            value={newProject.name}
+            onChange={(event) => setNewProject({ ...newProject, name: event.target.value })}
+            required
+          />
+          <input
+            placeholder="Description"
+            value={newProject.description}
+            onChange={(event) => setNewProject({ ...newProject, description: event.target.value })}
+            required
+          />
+          <select
+            value={newProject.clientCompanyId}
+            onChange={(event) => setNewProject({ ...newProject, clientCompanyId: event.target.value })}
+            required
+          >
+            <option value="">Select client company</option>
+            {companies.map((company) => (
+              <option key={company.id} value={company.id}>
+                {company.companyName}
+              </option>
+            ))}
+          </select>
+          <button type="submit">Create Project</button>
+        </form>
+      </section>
+
+      <section className="card">
+        <h3>Assign employees to projects</h3>
+        <div className="assign-employees-row">
+          <select
+            value={assignProjectId}
+            onChange={(event) => setAssignProjectId(event.target.value)}
+            aria-label="Select project"
+          >
+            <option value="">Select project</option>
+            {projects.map((project) => (
+              <option key={project.id} value={project.id}>
+                {project.name} ({project.status}) – {project.clientCompany?.companyName}
+              </option>
+            ))}
+          </select>
+          <select
+            value={assignEmployeeId}
+            onChange={(event) => setAssignEmployeeId(event.target.value)}
+            aria-label="Select employee"
+          >
+            <option value="">Select employee</option>
+            {employees.map((employee: any) => (
+              <option key={employee.id} value={employee.id}>
+                {formatName(employee.fullName)} ({employee.email})
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={() => void handleAssignEmployee()}
+            disabled={!assignProjectId || !assignEmployeeId}
+          >
+            Assign
+          </button>
+        </div>
+        {status ? <p className="muted">{status}</p> : null}
+      </section>
+
+      <section className="card">
+        <div className="card-header-with-actions">
+          <h3>Projects</h3>
+          {selectedProjectIds.length > 0 ? (
+            <div className="header-actions">
+              {selectedProjectIds.length === 1 ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const p = projects.find((x: any) => x.id === selectedProjectIds[0]);
+                    if (p) openEditProject(p);
+                  }}
+                >
+                  Edit
+                </button>
+              ) : null}
+              <button type="button" onClick={() => void deleteSelectedProjects()} className="danger">
+                Delete
+              </button>
+            </div>
+          ) : null}
+        </div>
+        {editingProjectId ? (
+          <div className="edit-project-form card-inner">
+            <h4>Edit project</h4>
+            <div className="grid-two">
+              <input
+                placeholder="Project name"
+                value={editProject.name}
+                onChange={(e) => setEditProject((prev) => ({ ...prev, name: e.target.value }))}
+              />
+              <input
+                placeholder="Description"
+                value={editProject.description}
+                onChange={(e) => setEditProject((prev) => ({ ...prev, description: e.target.value }))}
+              />
+              <select
+                value={editProject.status}
+                onChange={(e) => setEditProject((prev) => ({ ...prev, status: e.target.value }))}
+              >
+                <option value="PLANNING">Planning</option>
+                <option value="IN_PROGRESS">In Progress</option>
+                <option value="ON_HOLD">On Hold</option>
+                <option value="COMPLETED">Completed</option>
+              </select>
+              <select
+                value={editProject.clientCompanyId}
+                onChange={(e) => setEditProject((prev) => ({ ...prev, clientCompanyId: e.target.value }))}
+              >
+                <option value="">Select client company</option>
+                {companies.map((company) => (
+                  <option key={company.id} value={company.id}>
+                    {company.companyName}
                   </option>
                 ))}
-            </select>
+              </select>
+            </div>
+            <div className="edit-form-actions">
+              <button type="button" onClick={() => void saveEditProject()}>
+                Save
+              </button>
+              <button type="button" onClick={() => { setEditingProjectId(null); setStatus(""); }}>
+                Cancel
+              </button>
+            </div>
           </div>
-          {(project.assignments ?? []).map((assignment: any) => (
-            <button
-              key={assignment.employeeUserId}
-              type="button"
-              className="pill"
-              onClick={() => void handle(() => adminService.unassignEmployee(project.id, assignment.employeeUserId))}
-            >
-              Unassign {formatName(assignment.employee?.fullName)}
-            </button>
-          ))}
+        ) : null}
+        {status ? <p className="muted">{status}</p> : null}
+        <div className="table-wrap">
+          <table className="admin-table">
+            <thead>
+              <tr>
+                <th className="col-sno">S.No</th>
+                <th>
+                  <input
+                    type="checkbox"
+                    aria-label="Select all projects"
+                    checked={projects.length > 0 && projects.every((p: any) => selectedProjectIds.includes(p.id))}
+                    onChange={(e) => {
+                      if (e.target.checked) setSelectedProjectIds(projects.map((p: any) => p.id));
+                      else setSelectedProjectIds([]);
+                    }}
+                  />
+                </th>
+                <th>Name of the project</th>
+                <th>Client company</th>
+                <th>Status</th>
+                <th>Unassign</th>
+              </tr>
+            </thead>
+            <tbody>
+              {projects.map((project: any, index: number) => (
+                <tr key={project.id}>
+                  <td className="col-sno">{index + 1}</td>
+                  <td>
+                    <input
+                      type="checkbox"
+                      aria-label={`Select ${project.name}`}
+                      checked={selectedProjectIds.includes(project.id)}
+                      onChange={(e) => {
+                        setSelectedProjectIds((prev) =>
+                          e.target.checked ? [...prev, project.id] : prev.filter((id) => id !== project.id),
+                        );
+                      }}
+                    />
+                  </td>
+                  <td>{project.name}</td>
+                  <td>{project.clientCompany?.companyName ?? "—"}</td>
+                  <td>
+                    <select
+                      value={project.status}
+                      onChange={(event) => void handle(() => adminService.updateProject(project.id, { status: event.target.value }))}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <option value="PLANNING">Planning</option>
+                      <option value="IN_PROGRESS">In Progress</option>
+                      <option value="ON_HOLD">On Hold</option>
+                      <option value="COMPLETED">Completed</option>
+                    </select>
+                  </td>
+                  <td>
+                    <div className="project-row-actions">
+                      {(project.assignments ?? []).length === 0 ? (
+                        <span className="muted">—</span>
+                      ) : (
+                        (project.assignments ?? []).map((assignment: any) => (
+                          <button
+                            key={assignment.employeeUserId}
+                            type="button"
+                            className="pill"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void handle(() => adminService.unassignEmployee(project.id, assignment.employeeUserId));
+                            }}
+                          >
+                            Unassign {formatName(assignment.employee?.fullName)}
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {projects.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="muted">
+                    No projects yet.
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
         </div>
-      ))}
-    </section>
+      </section>
+    </>
   );
 
   return (

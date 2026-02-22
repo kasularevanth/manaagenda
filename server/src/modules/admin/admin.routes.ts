@@ -248,14 +248,30 @@ router.patch("/projects/:id", async (req, res, next) => {
         name: z.string().min(2).optional(),
         description: z.string().min(5).optional(),
         status: z.enum(["PLANNING", "IN_PROGRESS", "ON_HOLD", "COMPLETED"]).optional(),
+        clientCompanyId: z.string().uuid().optional(),
       })
       .parse(req.body);
 
     const project = await prisma.project.update({
       where: { id: req.params.id },
       data: body,
+      include: {
+        clientCompany: true,
+        assignments: { include: { employee: { select: { id: true, fullName: true, email: true } } } },
+      },
     });
     return res.json(project);
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.delete("/projects/:id", async (req, res, next) => {
+  try {
+    await prisma.project.delete({
+      where: { id: req.params.id },
+    });
+    return res.json({ message: "Project deleted" });
   } catch (error) {
     return next(error);
   }

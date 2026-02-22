@@ -26,7 +26,9 @@ const refreshCookieName = "refreshToken";
 const cookieOptions = {
   httpOnly: true,
   secure: env.COOKIE_SECURE,
-  sameSite: "lax" as const,
+  // Cross-origin (frontend ≠ backend) requires sameSite: "none"; only valid when secure: true
+  sameSite: (env.COOKIE_SECURE ? "none" : "lax") as "none" | "lax",
+  // Leave unset so cookie is for backend host only. Do NOT set to frontend URL.
   domain: env.COOKIE_DOMAIN || undefined,
   path: "/",
 };

@@ -16,6 +16,9 @@ import { errorHandler } from "./middleware/error-handler";
 
 export const app = express();
 
+// Required behind Render (or any reverse proxy) so rate-limit and IP-based logic see the real client
+app.set("trust proxy", 1);
+
 app.use(helmet());
 app.use(cors(corsOptions));
 app.use(express.json());

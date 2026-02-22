@@ -1,5 +1,5 @@
 import { NavLink, useParams } from "react-router-dom";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { adminService } from "../services/admin.service";
 import type { User } from "../types/api";
@@ -17,6 +17,7 @@ import clientsIcon from "../assets/icons/building-03.svg";
 import employeesIcon from "../assets/icons/individualuser.svg";
 import approvedIcon from "../assets/icons/compaignapprovalprocess.svg";
 import assignedProjectsIcon from "../assets/icons/dashboard-square-02.svg";
+import deleteUsersIcon from "../assets/icons/delete users.svg";
 
 type Props = {
   user: User;
@@ -25,6 +26,8 @@ type Props = {
 export const AdminPage = ({ user }: Props) => {
   const { section } = useParams<{ section?: string }>();
   const activeSection = section ?? "dashboard";
+  const [usersRangeDays, setUsersRangeDays] = useState<7 | 30>(7);
+  const [projectsRangeDays, setProjectsRangeDays] = useState<7 | 30>(7);
   const [dashboard, setDashboard] = useState<Record<string, number>>({
     totalUsers: 0,
     clients: 0,
@@ -38,6 +41,17 @@ export const AdminPage = ({ user }: Props) => {
   const [projects, setProjects] = useState<any[]>([]);
   const [requests, setRequests] = useState<any[]>([]);
   const [status, setStatus] = useState("");
+  const [userRoleFilter, setUserRoleFilter] = useState<"ALL" | "EMPLOYEE" | "CLIENT">("ALL");
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
+  const [companySearch, setCompanySearch] = useState("");
+  const [companyContactFilter, setCompanyContactFilter] = useState("ALL");
+  const [companySort, setCompanySort] = useState<"NEWEST" | "OLDEST" | "A_Z">("NEWEST");
+  const [showCreateUserPassword, setShowCreateUserPassword] = useState(false);
+  const [snackbar, setSnackbar] = useState<{ visible: boolean; message: string; type: "success" | "warning" }>({
+    visible: false,
+    message: "",
+    type: "success",
+  });
 
   const [newUser, setNewUser] = useState({
     fullName: "",
@@ -49,26 +63,48 @@ export const AdminPage = ({ user }: Props) => {
   const [newService, setNewService] = useState({ name: "", description: "" });
   const [newProject, setNewProject] = useState({ name: "", description: "", clientCompanyId: "" });
 
-  const loadAll = async () => {
-    const [d, allUsers, allServices, allClients, allProjects, allRequests] = await Promise.all([
-      adminService.getDashboard(),
-      adminService.getUsers(),
-      adminService.getServices(),
-      adminService.getClients(),
-      adminService.getProjects(),
-      adminService.getServiceRequests(),
-    ]);
-    setDashboard(d as Record<string, number>);
-    setUsers(allUsers as any[]);
-    setServices(allServices as any[]);
-    setCompanies(allClients as any[]);
-    setProjects(allProjects as any[]);
-    setRequests(allRequests as any[]);
-  };
+  const loadAll = useCallback(async (silent = false) => {
+    try {
+      const [d, allUsers, allServices, allClients, allProjects, allRequests] = await Promise.all([
+        adminService.getDashboard(),
+        adminService.getUsers(),
+        adminService.getServices(),
+        adminService.getClients(),
+        adminService.getProjects(),
+        adminService.getServiceRequests(),
+      ]);
+      setDashboard(d as Record<string, number>);
+      setUsers(allUsers as any[]);
+      setServices(allServices as any[]);
+      setCompanies(allClients as any[]);
+      setProjects(allProjects as any[]);
+      setRequests(allRequests as any[]);
+      if (!silent) {
+        setStatus("");
+      }
+    } catch (error) {
+      if (!silent) {
+        setStatus((error as Error).message);
+      }
+    }
+  }, []);
 
   useEffect(() => {
     void loadAll();
-  }, []);
+  }, [loadAll]);
+
+  useEffect(() => {
+    if (activeSection !== "services") return;
+
+    const pollId = window.setInterval(() => {
+      // Keep service requests fresh so new client submissions appear immediately.
+      void loadAll(true);
+    }, 3000);
+
+    return () => {
+      window.clearInterval(pollId);
+    };
+  }, [activeSection, loadAll]);
 
   const handle = async (action: () => Promise<unknown>) => {
     setStatus("");
@@ -89,6 +125,69 @@ export const AdminPage = ({ user }: Props) => {
     });
   };
 
+  const showSnackbar = (message: string, type: "success" | "warning") => {
+    setSnackbar({ visible: true, message, type });
+    setTimeout(() => {
+      setSnackbar((prev) => ({ ...prev, visible: false }));
+    }, 2600);
+  };
+
+  const displayedUsers = useMemo(
+    () => users.filter((entry) => userRoleFilter === "ALL" || entry.role === userRoleFilter),
+    [userRoleFilter, users],
+  );
+
+  const selectedEmployeeIds = useMemo(
+    () =>
+      selectedUserIds.filter((id) => {
+        const userEntry = users.find((entry) => entry.id === id);
+        return userEntry?.role === "EMPLOYEE";
+      }),
+    [selectedUserIds, users],
+  );
+
+  const companyContactOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    companies.forEach((entry) => {
+      if (entry.contactUser?.id) {
+        map.set(entry.contactUser.id, formatName(entry.contactUser.fullName));
+      }
+    });
+    return Array.from(map.entries());
+  }, [companies]);
+
+  const displayedCompanies = useMemo(() => {
+    const query = companySearch.trim().toLowerCase();
+    const next = companies.filter((entry) => {
+      const matchSearch =
+        !query ||
+        entry.companyName?.toLowerCase().includes(query) ||
+        entry.contactUser?.fullName?.toLowerCase().includes(query) ||
+        entry.contactUser?.email?.toLowerCase().includes(query);
+      const matchContact = companyContactFilter === "ALL" || entry.contactUser?.id === companyContactFilter;
+      return matchSearch && matchContact;
+    });
+
+    if (companySort === "A_Z") {
+      next.sort((a, b) => (a.companyName ?? "").localeCompare(b.companyName ?? ""));
+    } else if (companySort === "OLDEST") {
+      next.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+    } else {
+      next.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    }
+
+    return next;
+  }, [companies, companyContactFilter, companySearch, companySort]);
+
+  const readRequestNote = (notes: string | undefined, key: string) => {
+    if (!notes) return "";
+    const line = notes
+      .split("\n")
+      .map((item) => item.trim())
+      .find((item) => item.toLowerCase().startsWith(`${key.toLowerCase()}:`));
+    return line ? line.slice(key.length + 1).trim() : "";
+  };
+
   const statCards = [
     { key: "totalUsers", label: "Total Users", value: dashboard.totalUsers ?? 0, icon: totalUsersIcon },
     { key: "clients", label: "Total Clients", value: dashboard.clients ?? 0, icon: clientsIcon },
@@ -102,18 +201,36 @@ export const AdminPage = ({ user }: Props) => {
     },
   ];
 
-  const usersByRoleChartData = useMemo(
-    () => [
-      { name: "Employees", count: dashboard.employees ?? 0 },
-      { name: "Clients", count: dashboard.clients ?? 0 },
-    ],
-    [dashboard.clients, dashboard.employees],
-  );
+  const getRangeStart = (days: number) => {
+    const date = new Date();
+    date.setHours(0, 0, 0, 0);
+    date.setDate(date.getDate() - (days - 1));
+    return date;
+  };
+
+  const filteredUsers = useMemo(() => {
+    const rangeStart = getRangeStart(usersRangeDays);
+    return users.filter((entry) => entry.createdAt && new Date(entry.createdAt) >= rangeStart);
+  }, [users, usersRangeDays]);
+
+  const filteredProjects = useMemo(() => {
+    const rangeStart = getRangeStart(projectsRangeDays);
+    return projects.filter((entry) => entry.createdAt && new Date(entry.createdAt) >= rangeStart);
+  }, [projects, projectsRangeDays]);
+
+  const usersByRoleChartData = useMemo(() => {
+    const employeesCount = filteredUsers.filter((entry) => entry.role === "EMPLOYEE").length;
+    const clientsCount = filteredUsers.filter((entry) => entry.role === "CLIENT").length;
+    return [
+      { name: "Employees", count: employeesCount },
+      { name: "Clients", count: clientsCount },
+    ];
+  }, [filteredUsers]);
 
   const projectsPerUserChartData = useMemo(() => {
     const assignmentCounts = new Map<string, { name: string; projects: number }>();
 
-    projects.forEach((project) => {
+    filteredProjects.forEach((project) => {
       (project.assignments ?? []).forEach((assignment: any) => {
         const userId = assignment.employeeUserId as string;
         const name = formatName(assignment.employee?.fullName) || userId.slice(0, 8);
@@ -129,16 +246,19 @@ export const AdminPage = ({ user }: Props) => {
     return Array.from(assignmentCounts.values())
       .sort((a, b) => b.projects - a.projects)
       .slice(0, 8);
-  }, [projects]);
+  }, [filteredProjects]);
 
-  const monthlyTrendData = useMemo(() => {
+  const trendData = useMemo(() => {
+    const trendDays = 30;
     const now = new Date();
-    const points = Array.from({ length: 6 }, (_, index) => {
-      const date = new Date(now.getFullYear(), now.getMonth() - (5 - index), 1);
-      const key = `${date.getFullYear()}-${date.getMonth()}`;
+    now.setHours(0, 0, 0, 0);
+    const points = Array.from({ length: trendDays }, (_, index) => {
+      const date = new Date(now);
+      date.setDate(now.getDate() - (trendDays - 1 - index));
+      const key = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
       return {
         key,
-        label: date.toLocaleString("en-US", { month: "short" }),
+        label: date.toLocaleString("en-US", { month: "short", day: "numeric" }),
         users: 0,
         projects: 0,
       };
@@ -148,7 +268,7 @@ export const AdminPage = ({ user }: Props) => {
     users.forEach((entry) => {
       if (!entry.createdAt) return;
       const created = new Date(entry.createdAt);
-      const key = `${created.getFullYear()}-${created.getMonth()}`;
+      const key = `${created.getFullYear()}-${created.getMonth()}-${created.getDate()}`;
       const point = pointMap.get(key);
       if (point) point.users += 1;
     });
@@ -156,7 +276,7 @@ export const AdminPage = ({ user }: Props) => {
     projects.forEach((entry) => {
       if (!entry.createdAt) return;
       const created = new Date(entry.createdAt);
-      const key = `${created.getFullYear()}-${created.getMonth()}`;
+      const key = `${created.getFullYear()}-${created.getMonth()}-${created.getDate()}`;
       const point = pointMap.get(key);
       if (point) point.projects += 1;
     });
@@ -167,7 +287,10 @@ export const AdminPage = ({ user }: Props) => {
   const renderDashboard = () => (
     <>
       <section className="admin-welcome card">
-        <h2>Welcome back, {formatName(user.fullName)}</h2>
+        <h2 className="welcome-title">
+          <span className="welcome-prefix">Welcome Back, </span>
+          <span className="welcome-name">{formatName(user.fullName)}</span>
+        </h2>
         <p className="muted">Manage users, projects and services from one place.</p>
       </section>
       <section className="admin-stats-grid">
@@ -182,35 +305,55 @@ export const AdminPage = ({ user }: Props) => {
         ))}
       </section>
       <section className="card admin-chart-card">
-        <h3>Users Distribution</h3>
+        <div className="admin-chart-header">
+          <h3>Users Distribution</h3>
+          <select
+            value={String(usersRangeDays)}
+            onChange={(event) => setUsersRangeDays(Number(event.target.value) as 7 | 30)}
+            aria-label="Select users distribution time range"
+          >
+            <option value="7">Last 7 days</option>
+            <option value="30">Last 30 days</option>
+          </select>
+        </div>
         <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={usersByRoleChartData}>
+          <BarChart data={usersByRoleChartData} barCategoryGap="55%" margin={{ top: 10, right: 20, left: 20, bottom: 10 }}>
             <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="name" />
+            <XAxis dataKey="name" padding={{ left: 45, right: 45 }} />
             <YAxis allowDecimals={false} />
-            <Tooltip />
+            <Tooltip cursor={false} />
             <Legend />
-            <Bar dataKey="count" fill="#000047" radius={[8, 8, 0, 0]} />
+            <Bar dataKey="count" fill="#000047" radius={[8, 8, 0, 0]} maxBarSize={54} minPointSize={4} />
           </BarChart>
         </ResponsiveContainer>
       </section>
       <section className="card admin-chart-card">
-        <h3>Projects Assigned To Employees</h3>
+        <div className="admin-chart-header">
+          <h3>Projects Assigned To Employees</h3>
+          <select
+            value={String(projectsRangeDays)}
+            onChange={(event) => setProjectsRangeDays(Number(event.target.value) as 7 | 30)}
+            aria-label="Select projects chart time range"
+          >
+            <option value="7">Last 7 days</option>
+            <option value="30">Last 30 days</option>
+          </select>
+        </div>
         <ResponsiveContainer width="100%" height={320}>
           <BarChart data={projectsPerUserChartData}>
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis dataKey="name" />
             <YAxis allowDecimals={false} />
-            <Tooltip />
+            <Tooltip cursor={false} />
             <Legend />
             <Bar dataKey="projects" fill="#3f6bff" radius={[8, 8, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </section>
       <section className="card admin-chart-card">
-        <h3>Users & Projects Trend</h3>
+        <h3>Users & Projects Trend (30 days)</h3>
         <ResponsiveContainer width="100%" height={320}>
-          <LineChart data={monthlyTrendData}>
+          <LineChart data={trendData}>
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis dataKey="label" />
             <YAxis allowDecimals={false} />
@@ -225,93 +368,286 @@ export const AdminPage = ({ user }: Props) => {
   );
 
   const renderUsers = () => (
-    <section className="card">
-      <h3>Manage Users</h3>
-      <form className="grid-two" onSubmit={createUser}>
-        <input
-          placeholder="Full name"
-          value={newUser.fullName}
-          onChange={(event) => setNewUser({ ...newUser, fullName: event.target.value })}
-          required
-        />
-        <input
-          type="email"
-          placeholder="Email"
-          value={newUser.email}
-          onChange={(event) => setNewUser({ ...newUser, email: event.target.value })}
-          required
-        />
-        <input
-          type="password"
-          placeholder="Password"
-          value={newUser.password}
-          onChange={(event) => setNewUser({ ...newUser, password: event.target.value })}
-          required
-        />
-        <select
-          value={newUser.role}
-          onChange={(event) => setNewUser({ ...newUser, role: event.target.value as "EMPLOYEE" | "CLIENT" })}
-        >
-          <option value="EMPLOYEE">Employee</option>
-          <option value="CLIENT">Client</option>
-        </select>
-        <button type="submit">Create User</button>
-      </form>
-      {users.map((entry) => (
-        <div key={entry.id} className="list-item">
-          {formatName(entry.fullName)} ({entry.role}) - {entry.email}
-          {entry.role === "EMPLOYEE" ? (
-            <button type="button" onClick={() => void handle(() => adminService.removeEmployee(entry.id))}>
-              Remove Employee
+    <>
+      <section className="card">
+        <h3>Create User</h3>
+        <form className="grid-two" onSubmit={createUser}>
+          <input
+            placeholder="Full name"
+            value={newUser.fullName}
+            onChange={(event) => setNewUser({ ...newUser, fullName: event.target.value })}
+            required
+          />
+          <input
+            type="email"
+            placeholder="Email"
+            value={newUser.email}
+            onChange={(event) => setNewUser({ ...newUser, email: event.target.value })}
+            required
+          />
+          <div className="password-input-wrap">
+            <input
+              type={showCreateUserPassword ? "text" : "password"}
+              placeholder="Password"
+              value={newUser.password}
+              onChange={(event) => setNewUser({ ...newUser, password: event.target.value })}
+              required
+            />
+            <button
+              type="button"
+              className="password-toggle-btn"
+              onClick={() => setShowCreateUserPassword((prev) => !prev)}
+              aria-label={showCreateUserPassword ? "Hide password" : "Show password"}
+            >
+              {showCreateUserPassword ? (
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path
+                    d="M2 12s3.8-6 10-6 10 6 10 6-3.8 6-10 6-10-6-10-6Zm10 3.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              ) : (
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path
+                    d="M3 4.5 20 21M9.9 9.4A3.5 3.5 0 0 1 14.6 14M6.7 7.9C4.1 9.8 2.5 12 2.5 12S6.3 18 12 18a9.9 9.9 0 0 0 4.1-.8M16.8 16.1C19.6 14.2 21.5 12 21.5 12S17.7 6 12 6c-1 0-2 .1-2.9.4"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              )}
             </button>
-          ) : null}
+          </div>
+          <select
+            value={newUser.role}
+            onChange={(event) => setNewUser({ ...newUser, role: event.target.value as "EMPLOYEE" | "CLIENT" })}
+          >
+            <option value="EMPLOYEE">Employee</option>
+            <option value="CLIENT">Client</option>
+          </select>
+          <button type="submit">Create User</button>
+        </form>
+      </section>
+
+      <section className="card">
+        <div className="header-row">
+          <h3>Manage Users</h3>
+          <div className="header-actions">
+            <select
+              value={userRoleFilter}
+              onChange={(event) => {
+                setUserRoleFilter(event.target.value as "ALL" | "EMPLOYEE" | "CLIENT");
+                setSelectedUserIds([]);
+              }}
+              aria-label="Select users role filter"
+            >
+              <option value="ALL">All Users</option>
+              <option value="EMPLOYEE">Employees</option>
+              <option value="CLIENT">Clients</option>
+            </select>
+            <button
+              type="button"
+              className="delete-user-btn"
+              onClick={() =>
+                void (async () => {
+                  if (selectedUserIds.length === 0) {
+                    showSnackbar("Please select users before deleting.", "warning");
+                    return;
+                  }
+                  if (selectedEmployeeIds.length !== selectedUserIds.length) {
+                    showSnackbar("Client users cannot be deleted here. Select employee users only.", "warning");
+                    return;
+                  }
+                  await handle(async () => {
+                    await Promise.all(selectedEmployeeIds.map((id) => adminService.removeEmployee(id)));
+                    setSelectedUserIds([]);
+                  });
+                  showSnackbar("Selected employee users deleted successfully.", "success");
+                })()
+              }
+              disabled={selectedUserIds.length === 0}
+              aria-label="Delete selected users"
+            >
+              <img src={deleteUsersIcon} alt="" />
+              <span>Delete Selected</span>
+            </button>
+          </div>
         </div>
-      ))}
-    </section>
+        <div className="table-wrap">
+          <table className="admin-table">
+            <thead>
+              <tr>
+                <th>
+                  <input
+                    type="checkbox"
+                    aria-label="Select all users"
+                    checked={displayedUsers.length > 0 && displayedUsers.every((entry) => selectedUserIds.includes(entry.id))}
+                    onChange={(event) => {
+                      if (event.target.checked) {
+                        setSelectedUserIds(displayedUsers.map((entry) => entry.id));
+                      } else {
+                        setSelectedUserIds([]);
+                      }
+                    }}
+                  />
+                </th>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Role</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {displayedUsers.map((entry) => (
+                <tr key={entry.id}>
+                  <td>
+                    <input
+                      type="checkbox"
+                      checked={selectedUserIds.includes(entry.id)}
+                      onChange={(event) => {
+                        setSelectedUserIds((prev) =>
+                          event.target.checked ? [...prev, entry.id] : prev.filter((id) => id !== entry.id),
+                        );
+                      }}
+                      aria-label={`Select ${entry.fullName}`}
+                    />
+                  </td>
+                  <td>{formatName(entry.fullName)}</td>
+                  <td>{entry.email}</td>
+                  <td>{entry.role}</td>
+                  <td>
+                    {entry.role === "EMPLOYEE" ? (
+                      <button
+                        type="button"
+                        className="delete-user-btn icon-only"
+                        onClick={() => void handle(() => adminService.removeEmployee(entry.id))}
+                        aria-label={`Delete ${entry.fullName}`}
+                      >
+                        <img src={deleteUsersIcon} alt="" />
+                      </button>
+                    ) : (
+                      <span className="muted">Not allowed</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+              {displayedUsers.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="muted">
+                    No users found.
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </>
   );
 
   const renderCompanies = () => {
     const clientUsers = users.filter((entry) => entry.role === "CLIENT");
 
     return (
-      <section className="card">
-        <h3>Client Companies</h3>
-        <form
-          className="grid-two"
-          onSubmit={(event) => {
-            event.preventDefault();
-            void handle(async () => {
-              await adminService.createClientCompany(newCompany);
-              setNewCompany({ companyName: "", contactUserId: "" });
-            });
-          }}
-        >
-          <input
-            placeholder="Company name"
-            value={newCompany.companyName}
-            onChange={(event) => setNewCompany({ ...newCompany, companyName: event.target.value })}
-            required
-          />
-          <select
-            value={newCompany.contactUserId}
-            onChange={(event) => setNewCompany({ ...newCompany, contactUserId: event.target.value })}
-            required
+      <>
+        <section className="card">
+          <h3>Create Company</h3>
+          <form
+            className="grid-two"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void handle(async () => {
+                await adminService.createClientCompany(newCompany);
+                setNewCompany({ companyName: "", contactUserId: "" });
+              });
+            }}
           >
-            <option value="">Select client contact</option>
-            {clientUsers.map((client) => (
-              <option key={client.id} value={client.id}>
-                {formatName(client.fullName)} ({client.email})
-              </option>
-            ))}
-          </select>
-          <button type="submit">Create Company</button>
-        </form>
-        {companies.map((entry) => (
-          <p key={entry.id} className="list-item">
-            {entry.companyName} | contact: {formatName(entry.contactUser?.fullName)} ({entry.contactUser?.email})
-          </p>
-        ))}
-      </section>
+            <input
+              placeholder="Company name"
+              value={newCompany.companyName}
+              onChange={(event) => setNewCompany({ ...newCompany, companyName: event.target.value })}
+              required
+            />
+            <select
+              value={newCompany.contactUserId}
+              onChange={(event) => setNewCompany({ ...newCompany, contactUserId: event.target.value })}
+              required
+            >
+              <option value="">Select client contact</option>
+              {clientUsers.map((client) => (
+                <option key={client.id} value={client.id}>
+                  {formatName(client.fullName)} ({client.email})
+                </option>
+              ))}
+            </select>
+            <button type="submit">Create Company</button>
+          </form>
+        </section>
+
+        <section className="card">
+          <div className="header-row companies-toolbar">
+            <h4>Companies List</h4>
+            <div className="header-actions">
+              <input
+                placeholder="Search company or contact"
+                value={companySearch}
+                onChange={(event) => setCompanySearch(event.target.value)}
+              />
+              <select value={companyContactFilter} onChange={(event) => setCompanyContactFilter(event.target.value)}>
+                <option value="ALL">All Clients</option>
+                {companyContactOptions.map(([id, label]) => (
+                  <option key={id} value={id}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={companySort}
+                onChange={(event) => setCompanySort(event.target.value as "NEWEST" | "OLDEST" | "A_Z")}
+              >
+                <option value="NEWEST">Newest</option>
+                <option value="OLDEST">Oldest</option>
+                <option value="A_Z">Name A-Z</option>
+              </select>
+            </div>
+          </div>
+          <div className="table-wrap">
+            <table className="admin-table">
+              <thead>
+                <tr>
+                  <th>Company Name</th>
+                  <th>Client Name</th>
+                  <th>Client Email</th>
+                  <th>Created On</th>
+                </tr>
+              </thead>
+              <tbody>
+                {displayedCompanies.map((entry) => (
+                  <tr key={entry.id}>
+                    <td>{entry.companyName}</td>
+                    <td>{formatName(entry.contactUser?.fullName)}</td>
+                    <td>{entry.contactUser?.email ?? "-"}</td>
+                    <td>{entry.createdAt ? new Date(entry.createdAt).toLocaleDateString() : "-"}</td>
+                  </tr>
+                ))}
+                {displayedCompanies.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="muted">
+                      No companies found for current filters.
+                    </td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </>
     );
   };
 
@@ -354,7 +690,23 @@ export const AdminPage = ({ user }: Props) => {
         {requests.map((entry) => (
           <div key={entry.id} className="list-item">
             <p>
-              {entry.clientCompany?.companyName} requested {entry.service?.name} ({entry.status})
+              <strong>Company:</strong> {entry.clientCompany?.companyName} | <strong>Status:</strong> {entry.status}
+            </p>
+            <p>
+              <strong>Service Type:</strong> {entry.service?.name}
+            </p>
+            <p>
+              <strong>Project Name:</strong> {readRequestNote(entry.notes, "Project Name") || "-"}
+            </p>
+            <p>
+              <strong>Project Description:</strong> {readRequestNote(entry.notes, "Project Description") || "-"}
+            </p>
+            <p>
+              <strong>Additional Notes:</strong> {readRequestNote(entry.notes, "Client Notes") || "-"}
+            </p>
+            <p>
+              <strong>Requested On:</strong>{" "}
+              {entry.createdAt ? new Date(entry.createdAt).toLocaleString() : "-"}
             </p>
             {entry.status === "PENDING" ? (
               <button type="button" onClick={() => void handle(() => adminService.approveRequest(entry.id))}>
@@ -457,8 +809,9 @@ export const AdminPage = ({ user }: Props) => {
   );
 
   return (
-    <main className="admin-shell">
-      <aside className="admin-sidebar card">
+    <>
+      <main className="admin-shell">
+        <aside className="admin-sidebar card">
         <h2 className="admin-brand">Admin</h2>
         <NavLink to="/portal/admin/dashboard" className={({ isActive }) => `admin-nav-item ${isActive ? "active" : ""}`}>
           <img src={dashboardIcon} alt="" />
@@ -484,8 +837,8 @@ export const AdminPage = ({ user }: Props) => {
           <img src={messagesIcon} alt="" />
           <span>Messaging</span>
         </NavLink>
-      </aside>
-      <section className="admin-main">
+        </aside>
+        <section className="admin-main">
         <header className="header-row">
           <h1>
             {activeSection === "dashboard" ? "Dashboard" : null}
@@ -495,9 +848,11 @@ export const AdminPage = ({ user }: Props) => {
             {activeSection === "projects" ? "Projects" : null}
             {activeSection === "messaging" ? "Messaging" : null}
           </h1>
-          <button type="button" onClick={() => void loadAll()}>
-            Refresh Data
-          </button>
+          <div className="header-actions">
+            <button type="button" onClick={() => void loadAll()}>
+              Refresh Data
+            </button>
+          </div>
         </header>
         {status ? <p className="muted">{status}</p> : null}
         {activeSection === "dashboard" ? renderDashboard() : null}
@@ -506,7 +861,11 @@ export const AdminPage = ({ user }: Props) => {
         {activeSection === "services" ? renderServices() : null}
         {activeSection === "projects" ? renderProjects() : null}
         {activeSection === "messaging" ? <MessagesPanel currentUserId={user.id} /> : null}
-      </section>
-    </main>
+        </section>
+      </main>
+      <div className={`app-snackbar ${snackbar.visible ? "show" : ""} ${snackbar.type}`}>
+        {snackbar.message}
+      </div>
+    </>
   );
 };

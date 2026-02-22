@@ -9,31 +9,55 @@ type MessageRecord = {
   receiverId: string;
   content: string;
   createdAt: string;
-  sender?: { id: string; fullName: string };
-  receiver?: { id: string; fullName: string };
+  sender?: { id: string; fullName: string; role?: "ADMIN" | "EMPLOYEE" | "CLIENT" };
+  receiver?: { id: string; fullName: string; role?: "ADMIN" | "EMPLOYEE" | "CLIENT" };
 };
 
 type Props = {
   currentUserId: string;
+  title?: string;
+  receiverRoleFilter?: "ADMIN" | "EMPLOYEE" | "CLIENT";
 };
 
-export const MessagesPanel = ({ currentUserId }: Props) => {
+export const MessagesPanel = ({ currentUserId, title = "Messaging", receiverRoleFilter }: Props) => {
   const [messages, setMessages] = useState<MessageRecord[]>([]);
   const [targetId, setTargetId] = useState("");
   const [content, setContent] = useState("");
   const [error, setError] = useState("");
 
   const conversationUsers = useMemo(() => {
-    const map = new Map<string, string>();
+    const map = new Map<string, { name: string; role?: "ADMIN" | "EMPLOYEE" | "CLIENT" }>();
     for (const item of messages) {
       const other =
         item.senderId === currentUserId
-          ? { id: item.receiverId, name: formatName(item.receiver?.fullName) || item.receiverId }
-          : { id: item.senderId, name: formatName(item.sender?.fullName) || item.senderId };
-      map.set(other.id, other.name);
+          ? {
+              id: item.receiverId,
+              name: formatName(item.receiver?.fullName) || item.receiverId,
+              role: item.receiver?.role,
+            }
+          : {
+              id: item.senderId,
+              name: formatName(item.sender?.fullName) || item.senderId,
+              role: item.sender?.role,
+            };
+      if (!receiverRoleFilter || other.role === receiverRoleFilter) {
+        map.set(other.id, { name: other.name, role: other.role });
+      }
     }
     return Array.from(map.entries());
-  }, [currentUserId, messages]);
+  }, [currentUserId, messages, receiverRoleFilter]);
+
+  const visibleMessages = useMemo(
+    () =>
+      receiverRoleFilter
+        ? messages.filter((item) =>
+            item.senderId === currentUserId
+              ? item.receiver?.role === receiverRoleFilter
+              : item.sender?.role === receiverRoleFilter,
+          )
+        : messages,
+    [currentUserId, messages, receiverRoleFilter],
+  );
 
   const loadConversations = async () => {
     setError("");
@@ -63,11 +87,11 @@ export const MessagesPanel = ({ currentUserId }: Props) => {
 
   return (
     <section className="card">
-      <h3>Messaging</h3>
+      <h3>{title}</h3>
       <p className="muted">Allowed pairs: Admin↔Employee, Admin↔Client, Client↔Employee</p>
       <form className="grid-two" onSubmit={onSend}>
         <input
-          placeholder="Receiver user ID"
+          placeholder={receiverRoleFilter ? `Receiver user ID (${receiverRoleFilter})` : "Receiver user ID"}
           value={targetId}
           onChange={(event) => setTargetId(event.target.value)}
           required
@@ -87,15 +111,15 @@ export const MessagesPanel = ({ currentUserId }: Props) => {
       <div className="list">
         <h4>Conversation partners</h4>
         {conversationUsers.length === 0 ? <p className="muted">No messages yet.</p> : null}
-        {conversationUsers.map(([id, name]) => (
+        {conversationUsers.map(([id, info]) => (
           <button key={id} className="pill" onClick={() => setTargetId(id)} type="button">
-            {name} ({id.slice(0, 8)})
+            {info.name} ({id.slice(0, 8)})
           </button>
         ))}
       </div>
       <div className="list">
         <h4>Latest messages</h4>
-        {messages.slice(0, 20).map((item) => (
+        {visibleMessages.slice(0, 20).map((item) => (
           <div key={item.id} className="list-item">
             <strong>{formatName(item.sender?.fullName) || item.senderId}</strong> →{" "}
             <strong>{formatName(item.receiver?.fullName) || item.receiverId}</strong>

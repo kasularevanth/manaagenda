@@ -10,13 +10,9 @@ export const ProfilePage = () => {
 
   return (
     <main className="container">
-      <section className="profile-hero card">
+      <section className="profile-hero">
         <h1>Profile</h1>
-        <p className="muted">Manage your personal information and keep your account details updated.</p>
-        <div className="profile-meta">
-          <span className="profile-badge">{user.role}</span>
-          <span>{user.email}</span>
-        </div>
+        <p className="muted">Manage your personal information. Changes here will appear everywhere in the app.</p>
       </section>
       <ProfileEditor user={user} onUpdated={setUser} />
     </main>

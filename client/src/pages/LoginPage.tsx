@@ -9,6 +9,7 @@ export const LoginPage = () => {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
 
   const onLogin = async (event: FormEvent) => {
@@ -43,12 +44,44 @@ export const LoginPage = () => {
               </label>
               <label className="auth-label">
                 Password
-                <input
-                  type="password"
-                  placeholder="Create your password"
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                />
+                <div className="password-input-wrap">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Create your password"
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                  />
+                  <button
+                    type="button"
+                    className="password-toggle-btn"
+                    onClick={() => setShowPassword((prev) => !prev)}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                  >
+                    {showPassword ? (
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path
+                          d="M2 12s3.8-6 10-6 10 6 10 6-3.8 6-10 6-10-6-10-6Zm10 3.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.8"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    ) : (
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path
+                          d="M3 4.5 20 21M9.9 9.4A3.5 3.5 0 0 1 14.6 14M6.7 7.9C4.1 9.8 2.5 12 2.5 12S6.3 18 12 18a9.9 9.9 0 0 0 4.1-.8M16.8 16.1C19.6 14.2 21.5 12 21.5 12S17.7 6 12 6c-1 0-2 .1-2.9.4"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.8"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    )}
+                  </button>
+                </div>
               </label>
 
               <div className="auth-inline-link">

@@ -10,6 +10,15 @@ const router = Router();
 
 router.use(requireAuth, requireRole("ADMIN"));
 
+const readDetailFromNotes = (notes: string | null | undefined, key: string) => {
+  if (!notes) return "";
+  const line = notes
+    .split("\n")
+    .map((item) => item.trim())
+    .find((item) => item.toLowerCase().startsWith(`${key.toLowerCase()}:`));
+  return line ? line.slice(key.length + 1).trim() : "";
+};
+
 router.get("/dashboard", async (_req, res, next) => {
   try {
     const [employees, clients, approvedRequests, assignedProjects] = await Promise.all([
@@ -182,8 +191,13 @@ router.post("/service-requests/:id/approve", async (req, res, next) => {
 
     const project = await prisma.project.create({
       data: {
-        name: `${request.clientCompany.companyName} - ${request.service.name}`,
-        description: request.notes || `${request.service.name} implementation`,
+        name:
+          readDetailFromNotes(request.notes, "Project Name") ||
+          `${request.clientCompany.companyName} - ${request.service.name}`,
+        description:
+          readDetailFromNotes(request.notes, "Project Description") ||
+          request.notes ||
+          `${request.service.name} implementation`,
         clientCompanyId: request.clientCompanyId,
         serviceRequestId: request.id,
         status: "PLANNING",

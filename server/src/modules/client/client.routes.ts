@@ -14,6 +14,19 @@ const getClientCompanyId = async (userId: string) => {
   return company?.id;
 };
 
+router.get("/services", async (_req, res, next) => {
+  try {
+    const services = await prisma.service.findMany({
+      where: { isActive: true },
+      orderBy: { createdAt: "desc" },
+      select: { id: true, name: true, description: true, createdAt: true },
+    });
+    return res.json(services);
+  } catch (error) {
+    return next(error);
+  }
+});
+
 router.get("/projects", async (req, res, next) => {
   try {
     const companyId = await getClientCompanyId(req.user!.id);
@@ -46,16 +59,45 @@ router.post("/service-requests", async (req, res, next) => {
 
     const body = z
       .object({
-        serviceId: z.string().uuid(),
-        notes: z.string().min(3).optional(),
+        projectName: z.string().min(2).max(120),
+        projectDescription: z.string().min(5).max(1200),
+        notes: z
+          .string()
+          .trim()
+          .transform((value) => (value.length ? value : undefined))
+          .optional(),
       })
       .parse(req.body);
+
+    let defaultService = await prisma.service.findFirst({
+      where: { name: "Client Requested Service" },
+      select: { id: true },
+    });
+
+    if (!defaultService) {
+      defaultService = await prisma.service.create({
+        data: {
+          name: "Client Requested Service",
+          description: "Default service for client-initiated project requests.",
+          isActive: true,
+        },
+        select: { id: true },
+      });
+    }
+
+    const compiledNotes = [
+      `Project Name: ${body.projectName}`,
+      `Project Description: ${body.projectDescription}`,
+      body.notes ? `Client Notes: ${body.notes}` : undefined,
+    ]
+      .filter(Boolean)
+      .join("\n");
 
     const request = await prisma.serviceRequest.create({
       data: {
         clientCompanyId: companyId,
-        serviceId: body.serviceId,
-        notes: body.notes,
+        serviceId: defaultService.id,
+        notes: compiledNotes,
       },
       include: { service: true },
     });

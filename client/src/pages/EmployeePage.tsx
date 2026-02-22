@@ -13,18 +13,26 @@ export const EmployeePage = ({ user }: Props) => {
   const [projects, setProjects] = useState<any[]>([]);
   const [status, setStatus] = useState("");
 
-  const loadProjects = async () => {
+  const loadProjects = async (silent = false) => {
     try {
       const data = (await employeeService.getProjects()) as any[];
       setProjects(data);
-      setStatus("");
+      if (!silent) setStatus("");
     } catch (error) {
-      setStatus((error as Error).message);
+      if (!silent) setStatus((error as Error).message);
     }
   };
 
   useEffect(() => {
     void loadProjects();
+  }, []);
+
+  useEffect(() => {
+    const pollId = window.setInterval(() => {
+      // Reflect admin project edits (name, description, client, status) immediately.
+      void loadProjects(true);
+    }, 3000);
+    return () => window.clearInterval(pollId);
   }, []);
 
   return (

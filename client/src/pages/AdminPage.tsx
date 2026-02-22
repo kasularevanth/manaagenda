@@ -353,13 +353,13 @@ export const AdminPage = ({ user }: Props) => {
           </select>
         </div>
         <ResponsiveContainer width="100%" height={320}>
-          <BarChart data={projectsPerUserChartData}>
+          <BarChart data={projectsPerUserChartData} barCategoryGap="40%" margin={{ top: 10, right: 20, left: 20, bottom: 10 }}>
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis dataKey="name" />
             <YAxis allowDecimals={false} />
             <Tooltip cursor={false} />
             <Legend />
-            <Bar dataKey="projects" fill="#3f6bff" radius={[8, 8, 0, 0]} />
+            <Bar dataKey="projects" fill="#3f6bff" radius={[8, 8, 0, 0]} maxBarSize={56} />
           </BarChart>
         </ResponsiveContainer>
       </section>

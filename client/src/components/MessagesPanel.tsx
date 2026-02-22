@@ -42,6 +42,7 @@ export const MessagesPanel = ({ currentUserId, title = "Messaging", receiverRole
   const [targetId, setTargetId] = useState("");
   const [content, setContent] = useState("");
   const [error, setError] = useState("");
+  const [filterByUserId, setFilterByUserId] = useState("");
 
   const conversationUsers = useMemo(() => {
     const map = new Map<string, { name: string; role?: "ADMIN" | "EMPLOYEE" | "CLIENT" }>();
@@ -78,6 +79,13 @@ export const MessagesPanel = ({ currentUserId, title = "Messaging", receiverRole
       (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
     );
   }, [currentUserId, messages, receiverRoleFilter]);
+
+  const filteredMessages = useMemo(() => {
+    if (!filterByUserId) return visibleMessages;
+    return visibleMessages.filter(
+      (item) => item.senderId === filterByUserId || item.receiverId === filterByUserId,
+    );
+  }, [visibleMessages, filterByUserId]);
 
   const loadConversations = async () => {
     setError("");
@@ -176,8 +184,30 @@ export const MessagesPanel = ({ currentUserId, title = "Messaging", receiverRole
         ))}
       </div>
       <div className="list">
-        <h4>Latest messages</h4>
-        {visibleMessages.slice(0, 50).map((item) => (
+        <div className="message-filter-row">
+          <h4>Latest messages</h4>
+          <label className="message-filter-label">
+            <span>Filter by:</span>
+            <select
+              value={filterByUserId}
+              onChange={(e) => setFilterByUserId(e.target.value)}
+              aria-label="Filter messages by conversation partner"
+            >
+              <option value="">All</option>
+              {conversationUsers.map(([id, info]) => (
+                <option key={id} value={id}>
+                  {info.name} ({info.role ?? "—"})
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+        {filteredMessages.length === 0 ? (
+          <p className="muted">
+            {filterByUserId ? "No messages with this partner." : "No messages yet."}
+          </p>
+        ) : null}
+        {filteredMessages.slice(0, 50).map((item) => (
           <div key={item.id} className="list-item message-item">
             <div className="message-item-header">
               <strong>{formatName(item.sender?.fullName) || item.senderId}</strong> →{" "}

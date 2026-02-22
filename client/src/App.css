@@ -511,6 +511,31 @@ button.danger:hover {
   font-weight: normal;
 }
 
+.message-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.message-filter-row h4 {
+  margin: 0;
+}
+
+.message-filter-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.9rem;
+  font-weight: normal;
+  color: #2f364b;
+}
+
+.message-filter-label select {
+  min-width: 160px;
+}
+
 .request-service-form {
   max-width: 560px;
   gap: 0.7rem;

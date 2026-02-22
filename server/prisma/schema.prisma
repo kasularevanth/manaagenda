@@ -10,6 +10,8 @@ generator client {
 
 datasource db {
   provider  = "postgresql"
+  // Use pooler with port 6543 (transaction mode) and limit connections to avoid Supabase "max clients" error.
+  // Example: postgresql://USER:PASS@HOST.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=3
   url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
 }

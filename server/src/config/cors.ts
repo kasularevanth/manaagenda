@@ -1,7 +1,10 @@
 import type { CorsOptions } from "cors";
 
 // Add production frontend URLs here when needed.
-const allowedOrigins = ["http://localhost:5173"];
+const allowedOrigins = [
+  "http://localhost:5173",
+  "https://manaagendaai.onrender.com",
+];
 
 export const corsOptions: CorsOptions = {
   credentials: true,

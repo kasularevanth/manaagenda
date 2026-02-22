@@ -4,6 +4,7 @@ import type { FormEvent } from "react";
 import { adminService } from "../services/admin.service";
 import type { User } from "../types/api";
 import { MessagesPanel } from "../components/MessagesPanel";
+import { useSnackbar } from "../context/SnackbarContext";
 import { formatName } from "../utils/name";
 import { Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import dashboardIcon from "../assets/icons/dashboard-square-02.svg";
@@ -47,11 +48,7 @@ export const AdminPage = ({ user }: Props) => {
   const [companyContactFilter, setCompanyContactFilter] = useState("ALL");
   const [companySort, setCompanySort] = useState<"NEWEST" | "OLDEST" | "A_Z">("NEWEST");
   const [showCreateUserPassword, setShowCreateUserPassword] = useState(false);
-  const [snackbar, setSnackbar] = useState<{ visible: boolean; message: string; type: "success" | "warning" }>({
-    visible: false,
-    message: "",
-    type: "success",
-  });
+  const showSnackbar = useSnackbar().showSnackbar;
 
   const [newUser, setNewUser] = useState({
     fullName: "",
@@ -111,6 +108,19 @@ export const AdminPage = ({ user }: Props) => {
     };
   }, [activeSection, loadAll]);
 
+  useEffect(() => {
+    if (activeSection !== "projects") return;
+
+    const pollId = window.setInterval(() => {
+      // Reflect employee status changes on projects immediately.
+      void loadAll(true);
+    }, 3000);
+
+    return () => {
+      window.clearInterval(pollId);
+    };
+  }, [activeSection, loadAll]);
+
   const handle = async (action: () => Promise<unknown>) => {
     setStatus("");
     try {
@@ -124,17 +134,15 @@ export const AdminPage = ({ user }: Props) => {
 
   const createUser = async (event: FormEvent) => {
     event.preventDefault();
-    await handle(async () => {
+    setStatus("");
+    try {
       await adminService.createUser(newUser);
       setNewUser({ fullName: "", email: "", password: "", role: "EMPLOYEE" });
-    });
-  };
-
-  const showSnackbar = (message: string, type: "success" | "warning") => {
-    setSnackbar({ visible: true, message, type });
-    setTimeout(() => {
-      setSnackbar((prev) => ({ ...prev, visible: false }));
-    }, 2600);
+      await loadAll();
+      showSnackbar("User created successfully.", "success");
+    } catch (error) {
+      setStatus((error as Error).message);
+    }
   };
 
   const displayedUsers = useMemo(
@@ -565,12 +573,17 @@ export const AdminPage = ({ user }: Props) => {
           <h3>Create Company</h3>
           <form
             className="grid-two"
-            onSubmit={(event) => {
+            onSubmit={async (event) => {
               event.preventDefault();
-              void handle(async () => {
+              setStatus("");
+              try {
                 await adminService.createClientCompany(newCompany);
                 setNewCompany({ companyName: "", contactUserId: "" });
-              });
+                await loadAll();
+                showSnackbar("Company created successfully.", "success");
+              } catch (error) {
+                setStatus((error as Error).message);
+              }
             }}
           >
             <input
@@ -738,7 +751,7 @@ export const AdminPage = ({ user }: Props) => {
       await adminService.assignEmployee(assignProjectId, assignEmployeeId);
       await loadAll();
       setAssignEmployeeId("");
-      showSnackbar(`Successfully assigned to ${employeeName}.`, "success");
+      showSnackbar(`${employeeName} assigned to project successfully.`, "success");
     } catch (error) {
       setStatus((error as Error).message);
     }
@@ -767,7 +780,7 @@ export const AdminPage = ({ user }: Props) => {
       await loadAll();
       setEditingProjectId(null);
       setSelectedProjectIds((prev) => prev.filter((id) => id !== editingProjectId));
-      showSnackbar("Project updated. Changes reflected everywhere.", "success");
+      showSnackbar("Project updated successfully.", "success");
     } catch (error) {
       setStatus((error as Error).message);
     }
@@ -784,7 +797,30 @@ export const AdminPage = ({ user }: Props) => {
       await loadAll();
       setSelectedProjectIds([]);
       setEditingProjectId(null);
-      showSnackbar(count === 1 ? "Project deleted." : `${count} projects deleted.`, "success");
+      showSnackbar(count === 1 ? "Project deleted successfully." : `${count} projects deleted successfully.`, "success");
+    } catch (error) {
+      setStatus((error as Error).message);
+    }
+  };
+
+  const handleProjectStatusChange = async (projectId: string, status: string) => {
+    setStatus("");
+    try {
+      await adminService.updateProject(projectId, { status });
+      await loadAll();
+      showSnackbar("Project status updated.", "success");
+    } catch (error) {
+      setStatus((error as Error).message);
+    }
+  };
+
+  const handleUnassignEmployee = async (projectId: string, employeeUserId: string, employeeName?: string) => {
+    setStatus("");
+    try {
+      await adminService.unassignEmployee(projectId, employeeUserId);
+      await loadAll();
+      const name = employeeName ? formatName(employeeName) : "Employee";
+      showSnackbar(`Unassigned ${name} from project.`, "success");
     } catch (error) {
       setStatus((error as Error).message);
     }
@@ -796,12 +832,17 @@ export const AdminPage = ({ user }: Props) => {
         <h3>Create project</h3>
         <form
           className="grid-two"
-          onSubmit={(event) => {
+          onSubmit={async (event) => {
             event.preventDefault();
-            void handle(async () => {
+            setStatus("");
+            try {
               await adminService.createProject(newProject);
               setNewProject({ name: "", description: "", clientCompanyId: "" });
-            });
+              await loadAll();
+              showSnackbar("Project created successfully.", "success");
+            } catch (error) {
+              setStatus((error as Error).message);
+            }
           }}
         >
           <input
@@ -942,7 +983,6 @@ export const AdminPage = ({ user }: Props) => {
           <table className="admin-table">
             <thead>
               <tr>
-                <th className="col-sno">S.No</th>
                 <th>
                   <input
                     type="checkbox"
@@ -954,6 +994,7 @@ export const AdminPage = ({ user }: Props) => {
                     }}
                   />
                 </th>
+                <th className="col-sno">S.No</th>
                 <th>Name of the project</th>
                 <th>Client company</th>
                 <th>Status</th>
@@ -963,7 +1004,6 @@ export const AdminPage = ({ user }: Props) => {
             <tbody>
               {projects.map((project: any, index: number) => (
                 <tr key={project.id}>
-                  <td className="col-sno">{index + 1}</td>
                   <td>
                     <input
                       type="checkbox"
@@ -976,12 +1016,13 @@ export const AdminPage = ({ user }: Props) => {
                       }}
                     />
                   </td>
+                  <td className="col-sno">{index + 1}</td>
                   <td>{project.name}</td>
                   <td>{project.clientCompany?.companyName ?? "—"}</td>
                   <td>
                     <select
                       value={project.status}
-                      onChange={(event) => void handle(() => adminService.updateProject(project.id, { status: event.target.value }))}
+                      onChange={(event) => void handleProjectStatusChange(project.id, event.target.value)}
                       onClick={(e) => e.stopPropagation()}
                     >
                       <option value="PLANNING">Planning</option>
@@ -1002,7 +1043,11 @@ export const AdminPage = ({ user }: Props) => {
                             className="pill"
                             onClick={(e) => {
                               e.stopPropagation();
-                              void handle(() => adminService.unassignEmployee(project.id, assignment.employeeUserId));
+                              void handleUnassignEmployee(
+                                project.id,
+                                assignment.employeeUserId,
+                                assignment.employee?.fullName,
+                              );
                             }}
                           >
                             Unassign {formatName(assignment.employee?.fullName)}
@@ -1082,9 +1127,6 @@ export const AdminPage = ({ user }: Props) => {
         {activeSection === "messaging" ? <MessagesPanel currentUserId={user.id} /> : null}
         </section>
       </main>
-      <div className={`app-snackbar ${snackbar.visible ? "show" : ""} ${snackbar.type}`}>
-        {snackbar.message}
-      </div>
     </>
   );
 };

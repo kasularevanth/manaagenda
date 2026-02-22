@@ -3,6 +3,7 @@ import type { FormEvent } from "react";
 import { profileService } from "../services/profile.service";
 import type { User } from "../types/api";
 import { formatName, getInitials } from "../utils/name";
+import { useSnackbar } from "../context/SnackbarContext";
 
 type Props = {
   user: User;
@@ -10,6 +11,7 @@ type Props = {
 };
 
 export const ProfileEditor = ({ user, onUpdated }: Props) => {
+  const showSnackbar = useSnackbar().showSnackbar;
   const [editing, setEditing] = useState(false);
   const [fullName, setFullName] = useState(formatName(user.fullName));
   const [bio, setBio] = useState(user.bio ?? "");
@@ -29,7 +31,7 @@ export const ProfileEditor = ({ user, onUpdated }: Props) => {
       const updated = (await profileService.update({ fullName, bio, phone })) as User;
       onUpdated(updated);
       setEditing(false);
-      setStatus("Profile updated.");
+      showSnackbar("Profile updated successfully.", "success");
     } catch (error) {
       setStatus((error as Error).message);
     } finally {

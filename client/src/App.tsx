@@ -13,6 +13,7 @@ import logoutIcon from "./assets/icons/logout.svg";
 import profileAvatarDefault from "./assets/icons/profile-avatar-default.png";
 import { ProfilePage } from "./pages/ProfilePage";
 import { formatName } from "./utils/name";
+import { SnackbarProvider } from "./context/SnackbarContext";
 import "./App.css";
 
 const Topbar = () => {
@@ -157,7 +158,8 @@ const ProtectedRoute = ({ children }: { children: ReactNode }) => {
 
 const App = () => {
   return (
-    <Routes>
+    <SnackbarProvider>
+      <Routes>
       <Route
         path="/"
         element={
@@ -216,6 +218,7 @@ const App = () => {
       />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    </SnackbarProvider>
   );
 };
 

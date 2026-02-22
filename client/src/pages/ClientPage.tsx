@@ -5,6 +5,7 @@ import { MessagesPanel } from "../components/MessagesPanel";
 import { clientService } from "../services/client.service";
 import type { User } from "../types/api";
 import { formatName } from "../utils/name";
+import { useSnackbar } from "../context/SnackbarContext";
 import { messagesService } from "../services/messages.service";
 import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import dashboardIcon from "../assets/icons/dashboard-square-02.svg";
@@ -20,6 +21,7 @@ type Props = {
 export const ClientPage = ({ user }: Props) => {
   const { section } = useParams<{ section?: string }>();
   const activeSection = section ?? "dashboard";
+  const showSnackbar = useSnackbar().showSnackbar;
   const [projects, setProjects] = useState<any[]>([]);
   const [requests, setRequests] = useState<any[]>([]);
   const [messages, setMessages] = useState<any[]>([]);
@@ -75,6 +77,7 @@ export const ClientPage = ({ user }: Props) => {
       setProjectDescription("");
       setNotes("");
       await loadAll();
+      showSnackbar("Service request submitted successfully.", "success");
     } catch (error) {
       setStatus((error as Error).message);
     }

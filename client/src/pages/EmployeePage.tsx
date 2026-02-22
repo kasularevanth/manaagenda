@@ -2,12 +2,14 @@ import { useEffect, useState } from "react";
 import { MessagesPanel } from "../components/MessagesPanel";
 import { employeeService } from "../services/employee.service";
 import type { User } from "../types/api";
+import { useSnackbar } from "../context/SnackbarContext";
 
 type Props = {
   user: User;
 };
 
 export const EmployeePage = ({ user }: Props) => {
+  const showSnackbar = useSnackbar().showSnackbar;
   const [projects, setProjects] = useState<any[]>([]);
   const [status, setStatus] = useState("");
 
@@ -40,9 +42,11 @@ export const EmployeePage = ({ user }: Props) => {
             <select
               defaultValue={project.status}
               onChange={async (event) => {
+                setStatus("");
                 try {
                   await employeeService.updateProjectStatus(project.id, event.target.value);
                   await loadProjects();
+                  showSnackbar("Project status updated.", "success");
                 } catch (error) {
                   setStatus((error as Error).message);
                 }

@@ -81,7 +81,7 @@ VITE_API_BASE_URL=http://localhost:5000
 - Frontend: `cd client && npm run dev`
 
 ## Deploy
-- Frontend: Vercel
+- Frontend: Render
 - Backend: Render
 - Database: Supabase Postgres
 
@@ -97,9 +97,11 @@ Set matching environment variables in Render/Vercel dashboards.
 
 ## Test Credentials
 
-- Admin: ______________________
-- Employee: ______________________
-- Client: ______________________
+| Role    | Email                          | Password   |
+|---------|--------------------------------|------------|
+| Client  | jesse@gmail.com                | Client@123 |
+| Admin   | kasularevanth1@gmail.com       | Revanth@28 |
+| Employee| kasulayeshwanth119@gmail.com   | Kasula@123 |
 
 ## Further Information
 

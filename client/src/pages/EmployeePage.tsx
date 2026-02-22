@@ -1,4 +1,4 @@
-import { NavLink, useParams } from "react-router-dom";
+import { NavLink, Navigate, useParams } from "react-router-dom";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { MessagesPanel } from "../components/MessagesPanel";
 import { employeeService } from "../services/employee.service";
@@ -227,11 +227,18 @@ export const EmployeePage = ({ user }: Props) => {
           <span>Assigned Projects</span>
         </NavLink>
         <NavLink
-          to="/portal/employee/messaging"
+          to="/portal/employee/message-admin"
           className={({ isActive }) => `admin-nav-item ${isActive ? "active" : ""}`}
         >
           <img src={messagesIcon} alt="" />
-          <span>Messaging</span>
+          <span>Message admin</span>
+        </NavLink>
+        <NavLink
+          to="/portal/employee/message-client"
+          className={({ isActive }) => `admin-nav-item ${isActive ? "active" : ""}`}
+        >
+          <img src={messagesIcon} alt="" />
+          <span>Message client</span>
         </NavLink>
       </aside>
       <section className="admin-main">
@@ -244,7 +251,8 @@ export const EmployeePage = ({ user }: Props) => {
               </span>
             ) : null}
             {activeSection === "projects" ? "Assigned Projects" : null}
-            {activeSection === "messaging" ? "Messaging" : null}
+            {activeSection === "message-admin" ? "Message admin" : null}
+            {activeSection === "message-client" ? "Message client" : null}
           </h1>
           <button type="button" onClick={() => void loadAll()}>
             Refresh Data
@@ -252,7 +260,13 @@ export const EmployeePage = ({ user }: Props) => {
         </header>
         {activeSection === "dashboard" ? renderDashboard() : null}
         {activeSection === "projects" ? renderProjects() : null}
-        {activeSection === "messaging" ? <MessagesPanel currentUserId={user.id} title="Messaging" /> : null}
+        {activeSection === "messaging" ? <Navigate to="/portal/employee/message-admin" replace /> : null}
+        {activeSection === "message-admin" ? (
+          <MessagesPanel currentUserId={user.id} title="Message admin" receiverRoleFilter="ADMIN" />
+        ) : null}
+        {activeSection === "message-client" ? (
+          <MessagesPanel currentUserId={user.id} title="Message client" receiverRoleFilter="CLIENT" />
+        ) : null}
       </section>
     </main>
   );

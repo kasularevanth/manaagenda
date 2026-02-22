@@ -496,6 +496,21 @@ button.danger:hover {
   margin-bottom: 0.6rem;
 }
 
+.message-item .message-item-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin-bottom: 0.25rem;
+}
+
+.message-item .message-time {
+  margin-left: auto;
+  font-size: 0.8rem;
+  color: #5e6381;
+  font-weight: normal;
+}
+
 .request-service-form {
   max-width: 560px;
   gap: 0.7rem;

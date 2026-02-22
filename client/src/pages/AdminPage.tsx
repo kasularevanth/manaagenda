@@ -1,4 +1,4 @@
-import { NavLink, useParams } from "react-router-dom";
+import { NavLink, Navigate, useParams } from "react-router-dom";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { adminService } from "../services/admin.service";
@@ -1097,9 +1097,13 @@ export const AdminPage = ({ user }: Props) => {
           <img src={projectsIcon} alt="" />
           <span>Projects</span>
         </NavLink>
-        <NavLink to="/portal/admin/messaging" className={({ isActive }) => `admin-nav-item ${isActive ? "active" : ""}`}>
+        <NavLink to="/portal/admin/message-client" className={({ isActive }) => `admin-nav-item ${isActive ? "active" : ""}`}>
           <img src={messagesIcon} alt="" />
-          <span>Messaging</span>
+          <span>Messaging to client</span>
+        </NavLink>
+        <NavLink to="/portal/admin/message-employee" className={({ isActive }) => `admin-nav-item ${isActive ? "active" : ""}`}>
+          <img src={messagesIcon} alt="" />
+          <span>Messaging to employee</span>
         </NavLink>
         </aside>
         <section className="admin-main">
@@ -1110,7 +1114,8 @@ export const AdminPage = ({ user }: Props) => {
             {activeSection === "companies" ? "Client Companies" : null}
             {activeSection === "services" ? "Services" : null}
             {activeSection === "projects" ? "Projects" : null}
-            {activeSection === "messaging" ? "Messaging" : null}
+            {activeSection === "message-client" ? "Messaging to client" : null}
+            {activeSection === "message-employee" ? "Messaging to employee" : null}
           </h1>
           <div className="header-actions">
             <button type="button" onClick={() => void loadAll()}>
@@ -1124,7 +1129,13 @@ export const AdminPage = ({ user }: Props) => {
         {activeSection === "companies" ? renderCompanies() : null}
         {activeSection === "services" ? renderServices() : null}
         {activeSection === "projects" ? renderProjects() : null}
-        {activeSection === "messaging" ? <MessagesPanel currentUserId={user.id} /> : null}
+        {activeSection === "messaging" ? <Navigate to="/portal/admin/message-client" replace /> : null}
+        {activeSection === "message-client" ? (
+          <MessagesPanel currentUserId={user.id} title="Messaging to client" receiverRoleFilter="CLIENT" />
+        ) : null}
+        {activeSection === "message-employee" ? (
+          <MessagesPanel currentUserId={user.id} title="Messaging to employee" receiverRoleFilter="EMPLOYEE" />
+        ) : null}
         </section>
       </main>
     </>

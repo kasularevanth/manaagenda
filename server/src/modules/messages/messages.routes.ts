@@ -78,6 +78,88 @@ router.get("/conversations", async (req, res, next) => {
   }
 });
 
+router.get("/recipients", async (req, res, next) => {
+  try {
+    const roleParam = req.query.role as string | undefined;
+    const role = roleParam === "ADMIN" || roleParam === "EMPLOYEE" || roleParam === "CLIENT" ? roleParam : undefined;
+    const currentUserId = req.user!.id;
+    const currentRole = req.user!.role;
+
+    const select = { id: true, fullName: true, role: true };
+
+    if (currentRole === "ADMIN") {
+      if (role === "EMPLOYEE") {
+        const users = await prisma.user.findMany({
+          where: { role: "EMPLOYEE", isActive: true },
+          select,
+          orderBy: { fullName: "asc" },
+        });
+        return res.json(users);
+      }
+      if (role === "CLIENT") {
+        const companies = await prisma.clientCompany.findMany({
+          include: { contactUser: { select } },
+        });
+        const users = companies.map((c) => c.contactUser).filter(Boolean);
+        const deduped = Array.from(new Map(users.map((u) => [u.id, u])).values());
+        deduped.sort((a, b) => (a.fullName || "").localeCompare(b.fullName || ""));
+        return res.json(deduped);
+      }
+    }
+
+    if (currentRole === "CLIENT") {
+      const company = await prisma.clientCompany.findFirst({
+        where: { contactUserId: currentUserId },
+      });
+      if (!company) return res.json([]);
+      if (role === "ADMIN") {
+        const users = await prisma.user.findMany({
+          where: { role: "ADMIN", isActive: true },
+          select,
+          orderBy: { fullName: "asc" },
+        });
+        return res.json(users);
+      }
+      if (role === "EMPLOYEE") {
+        const assignments = await prisma.projectAssignment.findMany({
+          where: { project: { clientCompanyId: company.id } },
+          include: { employee: { select } },
+        });
+        const employees = Array.from(new Map(assignments.map((a) => [a.employee.id, a.employee])).values());
+        employees.sort((a, b) => (a.fullName || "").localeCompare(b.fullName || ""));
+        return res.json(employees);
+      }
+    }
+
+    if (currentRole === "EMPLOYEE") {
+      if (role === "ADMIN") {
+        const users = await prisma.user.findMany({
+          where: { role: "ADMIN", isActive: true },
+          select,
+          orderBy: { fullName: "asc" },
+        });
+        return res.json(users);
+      }
+      if (role === "CLIENT") {
+        const myAssignments = await prisma.projectAssignment.findMany({
+          where: { employeeUserId: currentUserId },
+          include: { project: { include: { clientCompany: { include: { contactUser: { select } } } } } },
+        });
+        const clients = myAssignments
+          .map((a) => a.project.clientCompany.contactUser)
+          .filter(Boolean) as { id: string; fullName: string; role: string }[];
+        const deduped = Array.from(new Map(clients.map((u) => [u.id, u])).values());
+        deduped.sort((a, b) => (a.fullName || "").localeCompare(b.fullName || ""));
+        return res.json(deduped);
+      }
+    }
+
+    return res.json([]);
+  } catch (error) {
+    return next(error);
+  }
+});
+
 router.post("/send", async (req, res, next) => {
   try {
     const body = z

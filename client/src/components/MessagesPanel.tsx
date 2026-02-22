@@ -1,7 +1,23 @@
 import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
-import { messagesService } from "../services/messages.service";
+import { messagesService, type MessageableRecipient } from "../services/messages.service";
 import { formatName } from "../utils/name";
+
+function formatMessageTime(createdAt: string): string {
+  const d = new Date(createdAt);
+  const now = new Date();
+  const isToday = d.toDateString() === now.toDateString();
+  if (isToday) {
+    return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
+  }
+  return d.toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
+}
 
 type MessageRecord = {
   id: string;
@@ -16,11 +32,13 @@ type MessageRecord = {
 type Props = {
   currentUserId: string;
   title?: string;
+  /** When set, fetches messageable recipients by role and shows a dropdown by name (no ID entry). */
   receiverRoleFilter?: "ADMIN" | "EMPLOYEE" | "CLIENT";
 };
 
 export const MessagesPanel = ({ currentUserId, title = "Messaging", receiverRoleFilter }: Props) => {
   const [messages, setMessages] = useState<MessageRecord[]>([]);
+  const [recipients, setRecipients] = useState<MessageableRecipient[]>([]);
   const [targetId, setTargetId] = useState("");
   const [content, setContent] = useState("");
   const [error, setError] = useState("");
@@ -47,17 +65,19 @@ export const MessagesPanel = ({ currentUserId, title = "Messaging", receiverRole
     return Array.from(map.entries());
   }, [currentUserId, messages, receiverRoleFilter]);
 
-  const visibleMessages = useMemo(
-    () =>
+  const visibleMessages = useMemo(() => {
+    const list =
       receiverRoleFilter
         ? messages.filter((item) =>
             item.senderId === currentUserId
               ? item.receiver?.role === receiverRoleFilter
               : item.sender?.role === receiverRoleFilter,
           )
-        : messages,
-    [currentUserId, messages, receiverRoleFilter],
-  );
+        : messages;
+    return [...list].sort(
+      (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+    );
+  }, [currentUserId, messages, receiverRoleFilter]);
 
   const loadConversations = async () => {
     setError("");
@@ -69,9 +89,30 @@ export const MessagesPanel = ({ currentUserId, title = "Messaging", receiverRole
     }
   };
 
+  const loadRecipients = async () => {
+    if (!receiverRoleFilter) return;
+    try {
+      const data = await messagesService.getRecipients(receiverRoleFilter);
+      setRecipients(data ?? []);
+    } catch {
+      setRecipients([]);
+    }
+  };
+
   useEffect(() => {
     void loadConversations();
   }, []);
+
+  useEffect(() => {
+    const pollId = window.setInterval(() => {
+      void loadConversations();
+    }, 3000);
+    return () => window.clearInterval(pollId);
+  }, []);
+
+  useEffect(() => {
+    void loadRecipients();
+  }, [receiverRoleFilter]);
 
   const onSend = async (event: FormEvent) => {
     event.preventDefault();
@@ -85,25 +126,42 @@ export const MessagesPanel = ({ currentUserId, title = "Messaging", receiverRole
     }
   };
 
+  const receiverLabel = (r: MessageableRecipient) => `${formatName(r.fullName)} (${r.role})`;
+
   return (
     <section className="card">
       <h3>{title}</h3>
-      <p className="muted">Allowed pairs: Admin↔Employee, Admin↔Client, Client↔Employee</p>
-      <form className="grid-two" onSubmit={onSend}>
-        <input
-          placeholder={receiverRoleFilter ? `Receiver user ID (${receiverRoleFilter})` : "Receiver user ID"}
-          value={targetId}
-          onChange={(event) => setTargetId(event.target.value)}
-          required
-        />
+      <form className="grid-two message-panel-form" onSubmit={onSend}>
+        {receiverRoleFilter ? (
+          <select
+            value={targetId}
+            onChange={(e) => setTargetId(e.target.value)}
+            required
+            aria-label={`Select recipient (${receiverRoleFilter})`}
+          >
+            <option value="">Select recipient by name</option>
+            {recipients.map((r) => (
+              <option key={r.id} value={r.id}>
+                {receiverLabel(r)}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <input
+            placeholder="Receiver user ID"
+            value={targetId}
+            onChange={(e) => setTargetId(e.target.value)}
+            required
+          />
+        )}
         <input
           placeholder="Write message"
           value={content}
-          onChange={(event) => setContent(event.target.value)}
+          onChange={(e) => setContent(e.target.value)}
           required
         />
         <button type="submit">Send</button>
-        <button type="button" onClick={() => void loadConversations()}>
+        <button type="button" onClick={() => { void loadConversations(); void loadRecipients(); }}>
           Refresh
         </button>
       </form>
@@ -113,16 +171,21 @@ export const MessagesPanel = ({ currentUserId, title = "Messaging", receiverRole
         {conversationUsers.length === 0 ? <p className="muted">No messages yet.</p> : null}
         {conversationUsers.map(([id, info]) => (
           <button key={id} className="pill" onClick={() => setTargetId(id)} type="button">
-            {info.name} ({id.slice(0, 8)})
+            {info.name} ({info.role ?? "—"})
           </button>
         ))}
       </div>
       <div className="list">
         <h4>Latest messages</h4>
-        {visibleMessages.slice(0, 20).map((item) => (
-          <div key={item.id} className="list-item">
-            <strong>{formatName(item.sender?.fullName) || item.senderId}</strong> →{" "}
-            <strong>{formatName(item.receiver?.fullName) || item.receiverId}</strong>
+        {visibleMessages.slice(0, 50).map((item) => (
+          <div key={item.id} className="list-item message-item">
+            <div className="message-item-header">
+              <strong>{formatName(item.sender?.fullName) || item.senderId}</strong> →{" "}
+              <strong>{formatName(item.receiver?.fullName) || item.receiverId}</strong>
+              <span className="message-time" title={item.createdAt}>
+                {formatMessageTime(item.createdAt)}
+              </span>
+            </div>
             <p>{item.content}</p>
           </div>
         ))}

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { messagesService, type MessageableRecipient } from "../services/messages.service";
 import { formatName } from "../utils/name";
+import { LoadingDots } from "./LoadingDots";
 
 function formatMessageTime(createdAt: string): string {
   const d = new Date(createdAt);
@@ -43,6 +44,8 @@ export const MessagesPanel = ({ currentUserId, title = "Messaging", receiverRole
   const [content, setContent] = useState("");
   const [error, setError] = useState("");
   const [filterByUserId, setFilterByUserId] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
 
   const conversationUsers = useMemo(() => {
     const map = new Map<string, { name: string; role?: "ADMIN" | "EMPLOYEE" | "CLIENT" }>();
@@ -87,13 +90,16 @@ export const MessagesPanel = ({ currentUserId, title = "Messaging", receiverRole
     );
   }, [visibleMessages, filterByUserId]);
 
-  const loadConversations = async () => {
+  const loadConversations = async (showLoading = false) => {
     setError("");
+    if (showLoading) setLoading(true);
     try {
       const data = (await messagesService.getConversations()) as MessageRecord[];
       setMessages(data);
     } catch (err) {
       setError((err as Error).message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -108,7 +114,7 @@ export const MessagesPanel = ({ currentUserId, title = "Messaging", receiverRole
   };
 
   useEffect(() => {
-    void loadConversations();
+    void loadConversations(true);
   }, []);
 
   useEffect(() => {
@@ -125,12 +131,15 @@ export const MessagesPanel = ({ currentUserId, title = "Messaging", receiverRole
   const onSend = async (event: FormEvent) => {
     event.preventDefault();
     setError("");
+    setSending(true);
     try {
       await messagesService.send({ receiverId: targetId, content });
       setContent("");
       await loadConversations();
     } catch (err) {
       setError((err as Error).message);
+    } finally {
+      setSending(false);
     }
   };
 
@@ -168,15 +177,18 @@ export const MessagesPanel = ({ currentUserId, title = "Messaging", receiverRole
           onChange={(e) => setContent(e.target.value)}
           required
         />
-        <button type="submit">Send</button>
-        <button type="button" onClick={() => { void loadConversations(); void loadRecipients(); }}>
-          Refresh
+        <button type="submit" disabled={sending}>
+          {sending ? <LoadingDots label="Sending" size="sm" /> : "Send"}
+        </button>
+        <button type="button" onClick={() => { void loadConversations(true); void loadRecipients(); }} disabled={loading}>
+          {loading ? <LoadingDots label="Loading" size="sm" /> : "Refresh"}
         </button>
       </form>
       {error ? <p className="error">{error}</p> : null}
       <div className="list">
         <h4>Conversation partners</h4>
-        {conversationUsers.length === 0 ? <p className="muted">No messages yet.</p> : null}
+        {loading && messages.length === 0 ? <p className="muted"><LoadingDots label="Loading" /></p> : null}
+        {!loading && conversationUsers.length === 0 ? <p className="muted">No messages yet.</p> : null}
         {conversationUsers.map(([id, info]) => (
           <button key={id} className="pill" onClick={() => setTargetId(id)} type="button">
             {info.name} ({info.role ?? "—"})
@@ -202,7 +214,10 @@ export const MessagesPanel = ({ currentUserId, title = "Messaging", receiverRole
             </select>
           </label>
         </div>
-        {filteredMessages.length === 0 ? (
+        {loading && filteredMessages.length === 0 ? (
+          <p className="muted"><LoadingDots label="Loading messages" /></p>
+        ) : null}
+        {!loading && filteredMessages.length === 0 ? (
           <p className="muted">
             {filterByUserId ? "No messages with this partner." : "No messages yet."}
           </p>

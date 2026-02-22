@@ -5,6 +5,7 @@ import { employeeService } from "../services/employee.service";
 import { messagesService } from "../services/messages.service";
 import type { User } from "../types/api";
 import { formatName } from "../utils/name";
+import { LoadingDots } from "../components/LoadingDots";
 import { useSnackbar } from "../context/SnackbarContext";
 import { Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import dashboardIcon from "../assets/icons/dashboard-square-02.svg";
@@ -35,8 +36,10 @@ export const EmployeePage = ({ user }: Props) => {
   const [projects, setProjects] = useState<any[]>([]);
   const [messages, setMessages] = useState<MessageRecord[]>([]);
   const [status, setStatus] = useState("");
+  const [dataLoading, setDataLoading] = useState(true);
 
   const loadAll = useCallback(async (silent = false) => {
+    if (!silent) setDataLoading(true);
     try {
       const [projectData, conversationData] = await Promise.all([
         employeeService.getProjects(),
@@ -47,6 +50,8 @@ export const EmployeePage = ({ user }: Props) => {
       if (!silent) setStatus("");
     } catch (error) {
       if (!silent) setStatus((error as Error).message);
+    } finally {
+      if (!silent) setDataLoading(false);
     }
   }, []);
 
@@ -111,6 +116,7 @@ export const EmployeePage = ({ user }: Props) => {
       <section className="card">
         <h3>Employee Dashboard</h3>
         <p className="muted">Overview of your assigned projects and messaging activity.</p>
+        {dataLoading ? <p className="muted"><LoadingDots label="Loading values" /></p> : null}
       </section>
       <section className="admin-stats-grid">
         <article className="admin-stat-card">
@@ -178,6 +184,9 @@ export const EmployeePage = ({ user }: Props) => {
     <section className="card">
       <h3>Assigned Projects</h3>
       {status ? <p className="muted">{status}</p> : null}
+      {dataLoading && projects.length === 0 ? (
+        <p className="muted"><LoadingDots label="Loading projects" /></p>
+      ) : null}
       {projects.map((project) => (
         <div key={project.id} className="list-item">
           <p>
@@ -254,8 +263,8 @@ export const EmployeePage = ({ user }: Props) => {
             {activeSection === "message-admin" ? "Message admin" : null}
             {activeSection === "message-client" ? "Message client" : null}
           </h1>
-          <button type="button" onClick={() => void loadAll()}>
-            Refresh Data
+          <button type="button" onClick={() => void loadAll()} disabled={dataLoading}>
+            {dataLoading ? <LoadingDots label="Loading" size="sm" /> : "Refresh Data"}
           </button>
         </header>
         {activeSection === "dashboard" ? renderDashboard() : null}

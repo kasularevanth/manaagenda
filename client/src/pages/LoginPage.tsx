@@ -3,6 +3,7 @@ import type { FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { AuthVisual } from "../components/AuthVisual";
+import { LoadingDots } from "../components/LoadingDots";
 
 export const LoginPage = () => {
   const { signIn } = useAuth();
@@ -11,15 +12,19 @@ export const LoginPage = () => {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const onLogin = async (event: FormEvent) => {
     event.preventDefault();
     setError("");
+    setIsSubmitting(true);
     try {
       await signIn(email, password);
       navigate("/portal");
     } catch (err) {
       setError((err as Error).message);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -90,8 +95,8 @@ export const LoginPage = () => {
                 </button>
               </div>
 
-              <button type="submit" className="auth-submit-btn">
-                Login
+              <button type="submit" className="auth-submit-btn" disabled={isSubmitting}>
+                {isSubmitting ? <LoadingDots label="Logging in" size="sm" /> : "Login"}
               </button>
             </form>
 

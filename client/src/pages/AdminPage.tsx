@@ -6,6 +6,7 @@ import type { User } from "../types/api";
 import { MessagesPanel } from "../components/MessagesPanel";
 import { useSnackbar } from "../context/SnackbarContext";
 import { formatName } from "../utils/name";
+import { LoadingDots } from "../components/LoadingDots";
 import { Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import dashboardIcon from "../assets/icons/dashboard-square-02.svg";
 import usersIcon from "../assets/icons/user-group.svg";
@@ -42,6 +43,8 @@ export const AdminPage = ({ user }: Props) => {
   const [projects, setProjects] = useState<any[]>([]);
   const [requests, setRequests] = useState<any[]>([]);
   const [status, setStatus] = useState("");
+  const [dataLoading, setDataLoading] = useState(true);
+  const [savingAction, setSavingAction] = useState<string | null>(null);
   const [userRoleFilter, setUserRoleFilter] = useState<"ALL" | "EMPLOYEE" | "CLIENT">("ALL");
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const [companySearch, setCompanySearch] = useState("");
@@ -66,6 +69,7 @@ export const AdminPage = ({ user }: Props) => {
   const [editProject, setEditProject] = useState({ name: "", description: "", status: "PLANNING", clientCompanyId: "" });
 
   const loadAll = useCallback(async (silent = false) => {
+    if (!silent) setDataLoading(true);
     try {
       const [d, allUsers, allServices, allClients, allProjects, allRequests] = await Promise.all([
         adminService.getDashboard(),
@@ -81,13 +85,11 @@ export const AdminPage = ({ user }: Props) => {
       setCompanies(allClients as any[]);
       setProjects(allProjects as any[]);
       setRequests(allRequests as any[]);
-      if (!silent) {
-        setStatus("");
-      }
+      if (!silent) setStatus("");
     } catch (error) {
-      if (!silent) {
-        setStatus((error as Error).message);
-      }
+      if (!silent) setStatus((error as Error).message);
+    } finally {
+      if (!silent) setDataLoading(false);
     }
   }, []);
 
@@ -135,6 +137,7 @@ export const AdminPage = ({ user }: Props) => {
   const createUser = async (event: FormEvent) => {
     event.preventDefault();
     setStatus("");
+    setSavingAction("createUser");
     try {
       await adminService.createUser(newUser);
       setNewUser({ fullName: "", email: "", password: "", role: "EMPLOYEE" });
@@ -142,6 +145,8 @@ export const AdminPage = ({ user }: Props) => {
       showSnackbar("User created successfully.", "success");
     } catch (error) {
       setStatus((error as Error).message);
+    } finally {
+      setSavingAction(null);
     }
   };
 
@@ -307,15 +312,21 @@ export const AdminPage = ({ user }: Props) => {
         <p className="muted">Manage users, projects and services from one place.</p>
       </section>
       <section className="admin-stats-grid">
-        {statCards.map((card) => (
-          <article key={card.key} className="admin-stat-card">
-            <div>
-              <p className="admin-stat-label">{card.label}</p>
-              <h3>{card.value}</h3>
-            </div>
-            <img src={card.icon} alt="" />
+        {dataLoading ? (
+          <article className="admin-stat-card">
+            <LoadingDots label="Loading values" />
           </article>
-        ))}
+        ) : (
+          statCards.map((card) => (
+            <article key={card.key} className="admin-stat-card">
+              <div>
+                <p className="admin-stat-label">{card.label}</p>
+                <h3>{card.value}</h3>
+              </div>
+              <img src={card.icon} alt="" />
+            </article>
+          ))
+        )}
       </section>
       <section className="card admin-chart-card">
         <div className="admin-chart-header">
@@ -444,7 +455,9 @@ export const AdminPage = ({ user }: Props) => {
             <option value="EMPLOYEE">Employee</option>
             <option value="CLIENT">Client</option>
           </select>
-          <button type="submit">Create User</button>
+          <button type="submit" disabled={savingAction === "createUser"}>
+            {savingAction === "createUser" ? <LoadingDots label="Creating" size="sm" /> : "Create User"}
+          </button>
         </form>
       </section>
 
@@ -517,6 +530,13 @@ export const AdminPage = ({ user }: Props) => {
               </tr>
             </thead>
             <tbody>
+              {dataLoading && users.length === 0 ? (
+                <tr className="table-loading-row">
+                  <td colSpan={5}>
+                    <LoadingDots label="Loading users" />
+                  </td>
+                </tr>
+              ) : null}
               {displayedUsers.map((entry) => (
                 <tr key={entry.id}>
                   <td>
@@ -576,6 +596,7 @@ export const AdminPage = ({ user }: Props) => {
             onSubmit={async (event) => {
               event.preventDefault();
               setStatus("");
+              setSavingAction("createCompany");
               try {
                 await adminService.createClientCompany(newCompany);
                 setNewCompany({ companyName: "", contactUserId: "" });
@@ -583,6 +604,8 @@ export const AdminPage = ({ user }: Props) => {
                 showSnackbar("Company created successfully.", "success");
               } catch (error) {
                 setStatus((error as Error).message);
+              } finally {
+                setSavingAction(null);
               }
             }}
           >
@@ -604,7 +627,9 @@ export const AdminPage = ({ user }: Props) => {
                 </option>
               ))}
             </select>
-            <button type="submit">Create Company</button>
+            <button type="submit" disabled={savingAction === "createCompany"}>
+              {savingAction === "createCompany" ? <LoadingDots label="Creating" size="sm" /> : "Create Company"}
+            </button>
           </form>
         </section>
 
@@ -646,6 +671,13 @@ export const AdminPage = ({ user }: Props) => {
                 </tr>
               </thead>
               <tbody>
+                {dataLoading && companies.length === 0 ? (
+                  <tr className="table-loading-row">
+                    <td colSpan={4}>
+                      <LoadingDots label="Loading companies" />
+                    </td>
+                  </tr>
+                ) : null}
                 {displayedCompanies.map((entry) => (
                   <tr key={entry.id}>
                     <td>{entry.companyName}</td>
@@ -675,12 +707,17 @@ export const AdminPage = ({ user }: Props) => {
         <h3>Services</h3>
         <form
           className="grid-two"
-          onSubmit={(event) => {
+          onSubmit={async (event) => {
             event.preventDefault();
-            void handle(async () => {
-              await adminService.createService(newService);
-              setNewService({ name: "", description: "" });
-            });
+            setSavingAction("createService");
+            try {
+              await handle(async () => {
+                await adminService.createService(newService);
+                setNewService({ name: "", description: "" });
+              });
+            } finally {
+              setSavingAction(null);
+            }
           }}
         >
           <input
@@ -695,8 +732,13 @@ export const AdminPage = ({ user }: Props) => {
             onChange={(event) => setNewService({ ...newService, description: event.target.value })}
             required
           />
-          <button type="submit">Create Service</button>
+          <button type="submit" disabled={savingAction === "createService"}>
+          {savingAction === "createService" ? <LoadingDots label="Creating" size="sm" /> : "Create Service"}
+        </button>
         </form>
+        {dataLoading && services.length === 0 ? (
+          <p className="muted"><LoadingDots label="Loading services" /></p>
+        ) : null}
         {services.map((entry) => (
           <p key={entry.id} className="list-item">
             {entry.name} - {entry.description}
@@ -705,6 +747,9 @@ export const AdminPage = ({ user }: Props) => {
       </section>
       <section className="card">
         <h3>Service Requests</h3>
+        {dataLoading && requests.length === 0 ? (
+          <p className="muted"><LoadingDots label="Loading requests" /></p>
+        ) : null}
         {requests.map((entry) => (
           <div key={entry.id} className="list-item">
             <p>
@@ -727,8 +772,21 @@ export const AdminPage = ({ user }: Props) => {
               {entry.createdAt ? new Date(entry.createdAt).toLocaleString() : "-"}
             </p>
             {entry.status === "PENDING" ? (
-              <button type="button" onClick={() => void handle(() => adminService.approveRequest(entry.id))}>
-                Approve & Create Project
+              <button
+                type="button"
+                disabled={savingAction === `approve-${entry.id}`}
+                onClick={() =>
+                  void (async () => {
+                    setSavingAction(`approve-${entry.id}`);
+                    try {
+                      await handle(() => adminService.approveRequest(entry.id));
+                    } finally {
+                      setSavingAction(null);
+                    }
+                  })()
+                }
+              >
+                {savingAction === `approve-${entry.id}` ? <LoadingDots label="Approving" size="sm" /> : "Approve & Create Project"}
               </button>
             ) : null}
           </div>
@@ -835,6 +893,7 @@ export const AdminPage = ({ user }: Props) => {
           onSubmit={async (event) => {
             event.preventDefault();
             setStatus("");
+            setSavingAction("createProject");
             try {
               await adminService.createProject(newProject);
               setNewProject({ name: "", description: "", clientCompanyId: "" });
@@ -842,6 +901,8 @@ export const AdminPage = ({ user }: Props) => {
               showSnackbar("Project created successfully.", "success");
             } catch (error) {
               setStatus((error as Error).message);
+            } finally {
+              setSavingAction(null);
             }
           }}
         >
@@ -869,7 +930,9 @@ export const AdminPage = ({ user }: Props) => {
               </option>
             ))}
           </select>
-          <button type="submit">Create Project</button>
+          <button type="submit" disabled={savingAction === "createProject"}>
+            {savingAction === "createProject" ? <LoadingDots label="Creating" size="sm" /> : "Create Project"}
+          </button>
         </form>
       </section>
 
@@ -1002,6 +1065,13 @@ export const AdminPage = ({ user }: Props) => {
               </tr>
             </thead>
             <tbody>
+              {dataLoading && projects.length === 0 ? (
+                <tr className="table-loading-row">
+                  <td colSpan={6}>
+                    <LoadingDots label="Loading projects" />
+                  </td>
+                </tr>
+              ) : null}
               {projects.map((project: any, index: number) => (
                 <tr key={project.id}>
                   <td>
@@ -1118,8 +1188,8 @@ export const AdminPage = ({ user }: Props) => {
             {activeSection === "message-employee" ? "Messaging to employee" : null}
           </h1>
           <div className="header-actions">
-            <button type="button" onClick={() => void loadAll()}>
-              Refresh Data
+            <button type="button" onClick={() => void loadAll()} disabled={dataLoading}>
+              {dataLoading ? <LoadingDots label="Loading" size="sm" /> : "Refresh Data"}
             </button>
           </div>
         </header>

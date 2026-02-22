@@ -5,6 +5,7 @@ import { MessagesPanel } from "../components/MessagesPanel";
 import { clientService } from "../services/client.service";
 import type { User } from "../types/api";
 import { formatName } from "../utils/name";
+import { LoadingDots } from "../components/LoadingDots";
 import { useSnackbar } from "../context/SnackbarContext";
 import { messagesService } from "../services/messages.service";
 import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
@@ -29,8 +30,11 @@ export const ClientPage = ({ user }: Props) => {
   const [projectDescription, setProjectDescription] = useState("");
   const [notes, setNotes] = useState("");
   const [status, setStatus] = useState("");
+  const [dataLoading, setDataLoading] = useState(true);
+  const [submitLoading, setSubmitLoading] = useState(false);
 
   const loadAll = useCallback(async (silent = false) => {
+    if (!silent) setDataLoading(true);
     try {
       const [projectData, requestData, conversationData] = await Promise.all([
         clientService.getProjects(),
@@ -40,13 +44,11 @@ export const ClientPage = ({ user }: Props) => {
       setProjects(projectData as any[]);
       setRequests(requestData as any[]);
       setMessages(conversationData as any[]);
-      if (!silent) {
-        setStatus("");
-      }
+      if (!silent) setStatus("");
     } catch (error) {
-      if (!silent) {
-        setStatus((error as Error).message);
-      }
+      if (!silent) setStatus((error as Error).message);
+    } finally {
+      if (!silent) setDataLoading(false);
     }
   }, []);
 
@@ -67,6 +69,7 @@ export const ClientPage = ({ user }: Props) => {
 
   const onRequestService = async (event: FormEvent) => {
     event.preventDefault();
+    setSubmitLoading(true);
     try {
       await clientService.createServiceRequest({
         projectName,
@@ -80,6 +83,8 @@ export const ClientPage = ({ user }: Props) => {
       showSnackbar("Service request submitted successfully.", "success");
     } catch (error) {
       setStatus((error as Error).message);
+    } finally {
+      setSubmitLoading(false);
     }
   };
 
@@ -122,6 +127,7 @@ export const ClientPage = ({ user }: Props) => {
       <section className="card">
         <h3>Client Dashboard</h3>
         <p className="muted">Track service requests and communication activity quickly.</p>
+        {dataLoading ? <p className="muted"><LoadingDots label="Loading values" /></p> : null}
       </section>
       <section className="admin-stats-grid">
         <article className="admin-stat-card">
@@ -188,6 +194,9 @@ export const ClientPage = ({ user }: Props) => {
   const renderProjects = () => (
     <section className="card">
       <h3>View Projects</h3>
+      {dataLoading && projects.length === 0 ? (
+        <p className="muted"><LoadingDots label="Loading projects" /></p>
+      ) : null}
       {projects.map((project) => (
         <div className="list-item" key={project.id}>
           <p>
@@ -223,10 +232,13 @@ export const ClientPage = ({ user }: Props) => {
           <span className="request-label">Additional Notes</span>
           <input className="request-input" value={notes} onChange={(event) => setNotes(event.target.value)} />
         </label>
-        <button type="submit" className="request-submit-btn">
-          Submit Request
+        <button type="submit" className="request-submit-btn" disabled={submitLoading}>
+          {submitLoading ? <LoadingDots label="Submitting" size="sm" /> : "Submit Request"}
         </button>
       </form>
+      {dataLoading && requests.length === 0 ? (
+        <p className="muted"><LoadingDots label="Loading requests" /></p>
+      ) : null}
       {requests.map((entry) => (
         <p key={entry.id} className="list-item">
           {entry.service?.name} - {entry.status}
@@ -280,8 +292,8 @@ export const ClientPage = ({ user }: Props) => {
             {activeSection === "message-admin" ? "Message Admin" : null}
             {activeSection === "message-employees" ? "Message Assigned Employees" : null}
           </h1>
-          <button type="button" onClick={() => void loadAll()}>
-            Refresh Data
+          <button type="button" onClick={() => void loadAll()} disabled={dataLoading}>
+            {dataLoading ? <LoadingDots label="Loading" size="sm" /> : "Refresh Data"}
           </button>
         </header>
         {status ? <p className="muted">{status}</p> : null}

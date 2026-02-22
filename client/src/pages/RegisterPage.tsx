@@ -4,6 +4,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { registerUser } from "../services/auth.service";
 import { AuthVisual } from "../components/AuthVisual";
 import { useAuth } from "../hooks/useAuth";
+import { LoadingDots } from "../components/LoadingDots";
 
 export const RegisterPage = () => {
   const navigate = useNavigate();
@@ -16,6 +17,7 @@ export const RegisterPage = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [role, setRole] = useState<"" | "ADMIN" | "EMPLOYEE" | "CLIENT">("");
   const [status, setStatus] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const onRegister = async (event: FormEvent) => {
     event.preventDefault();
@@ -28,6 +30,7 @@ export const RegisterPage = () => {
       setStatus("Password and confirm password must match.");
       return;
     }
+    setIsSubmitting(true);
     try {
       await registerUser({ fullName, email, password, role });
       await signIn(email, password);
@@ -35,6 +38,7 @@ export const RegisterPage = () => {
       setTimeout(() => navigate("/portal"), 500);
     } catch (error) {
       setStatus((error as Error).message);
+      setIsSubmitting(false);
     }
   };
 
@@ -164,8 +168,8 @@ export const RegisterPage = () => {
                   </button>
                 </div>
               </label>
-              <button type="submit" className="auth-submit-btn">
-                Create Account
+              <button type="submit" className="auth-submit-btn" disabled={isSubmitting}>
+                {isSubmitting ? <LoadingDots label="Creating account" size="sm" /> : "Create Account"}
               </button>
             </form>
 

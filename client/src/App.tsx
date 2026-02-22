@@ -14,6 +14,7 @@ import profileAvatarDefault from "./assets/icons/profile-avatar-default.png";
 import { ProfilePage } from "./pages/ProfilePage";
 import { formatName } from "./utils/name";
 import { SnackbarProvider } from "./context/SnackbarContext";
+import { LoadingDots } from "./components/LoadingDots";
 import "./App.css";
 
 const Topbar = () => {
@@ -149,20 +150,22 @@ const ProfileRoutePage = () => {
   );
 };
 
+const AuthCheckingScreen = () => (
+  <main className="container auth-check-screen">
+    <LoadingDots label="Checking authentication" />
+  </main>
+);
+
 const PublicOnlyRoute = ({ children }: { children: ReactNode }) => {
   const { user, loading } = useAuth();
-  if (loading) {
-    return <main className="container">Checking session...</main>;
-  }
+  if (loading) return <AuthCheckingScreen />;
   if (user) return <Navigate to="/portal" replace />;
   return children;
 };
 
 const ProtectedRoute = ({ children }: { children: ReactNode }) => {
   const { user, loading } = useAuth();
-  if (loading) {
-    return <main className="container">Checking session...</main>;
-  }
+  if (loading) return <AuthCheckingScreen />;
   if (!user) return <Navigate to="/login" replace />;
   return children;
 };

@@ -71,7 +71,11 @@ router.get("/users", async (req, res, next) => {
   try {
     const role = req.query.role as "EMPLOYEE" | "CLIENT" | undefined;
     const users = await prisma.user.findMany({
-      where: role ? { role } : { role: { in: ["EMPLOYEE", "CLIENT"] } },
+      // Only return active users so soft-deleted users are hidden from the UI.
+      where: {
+        isActive: true,
+        ...(role ? { role } : { role: { in: ["EMPLOYEE", "CLIENT"] } }),
+      },
       select: { id: true, fullName: true, email: true, role: true, isActive: true, createdAt: true },
       orderBy: { createdAt: "desc" },
     });
@@ -88,12 +92,14 @@ router.delete("/employees/:id", async (req, res, next) => {
       throw new ApiError(404, "Employee not found");
     }
 
-    await prisma.user.update({
+    // Hard delete the employee so they are fully removed from the database.
+    // Related records that reference the employee (assignments, messages, refresh tokens)
+    // use onDelete: Cascade in the Prisma schema and will be cleaned up automatically.
+    await prisma.user.delete({
       where: { id: employee.id },
-      data: { isActive: false },
     });
 
-    return res.json({ message: "Employee removed" });
+    return res.json({ message: "Employee deleted" });
   } catch (error) {
     return next(error);
   }
